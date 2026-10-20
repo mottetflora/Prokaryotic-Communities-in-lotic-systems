@@ -1,17 +1,9 @@
 #!/bin/bash
-#SBATCH -N 1   # node count
-#SBATCH --ntasks-per-node=1  # core count
-#SBATCH --partition=normal
-#SBATCH -t 24:00:00
-#SBATCH --cpus-per-task=10
-#SBATCH --mail-type=ALL
-#SBATCH --mail-user=flora.mottet@univ-lyon1.fr
 
-# FastQC est un controle qualite des reads bruts.
-# FastQC est deja present sur le cluster
-# En premier, on met l'input qui doit etre dezippe
-# -o c'est l'output, il doit deja avoir ete cree et doit etre vide
-# --java stipule le chemin pour acceder a java (sinon, il ne le trouve pas)
+# FastQC is a quality control of raw reads 
+# First, the unziped input
+# -o for output, the folder must already exist and empty
+# --java for java path if needed
 
 cd /beegfs/data/fmottet/MetaG_RE/20251119-AVITI3-ABJE15WBR-0D2A15E2-C6D6-11F0-9DCF-DB86D3CEC64B/
 

@@ -1,15 +1,15 @@
 #!/bin/bash
 
-source /beegfs/data/fmottet/mypython/bin/activate # necessite d'avoir un environnement python actif pour faire tourner megahit
+source /beegfs/data/fmottet/mypython/bin/activate # activated python environment needed
 
-# Megahit permet d'assembler rapidement mais avec une moindre qualita que metaSPAdes des reads en contigs
-# Aide : https://www.metagenomics.wiki/tools/assembly/megahit
-# -1 c'est pour le fichier de reads forward
-# -2 c'est pour le fichier de reads reverse
-# -o c'est l'output
-# -t c'est le nombre de threads a utiliser
-# -m c'est la quantite de memoire disponible a utiliser ici 50%
-# --k-list donne la liste de tailles de k-mer qu'on veut tester
+# Megahit assembles reads overlaping, creating contigs
+# Documentation : https://www.metagenomics.wiki/tools/assembly/megahit
+# -1 : forwards reads 
+# -2 : reverse reads
+# -o : output
+# -t : threads number to use
+# -m : proportion of available memory to use (here 50% of allowed memory) 
+# --k-list : lengths of tested k-mers
 
 /beegfs/data/fmottet/Soft/MEGAHIT-1.2.9-Linux-x86_64-static/bin/megahit -1 /beegfs/data/fmottet/MetaG_RE/Clean/AAP38-BRE-A-S2_clean_R1.fastq.gz \
         -2 /beegfs/data/fmottet/MetaG_RE/Clean/AAP38-BRE-A-S2_clean_R2.fastq.gz --k-list 33,55,77 -t 6 -m 0.5 -o /beegfs/data/fmottet/MetaG_RE/Megahit_results/Megahit_AAP38-BRE-A-S2
