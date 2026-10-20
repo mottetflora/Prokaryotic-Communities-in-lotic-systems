@@ -1,0 +1,497 @@
+##################################################
+############## R Environment Set Up ##############
+##################################################
+
+######### Packages #########
+library(reconPlots) ## curve_intersect
+library(vegan) ## specnumber, decostand, vegdist
+library(plotrix) ## weighted.hist
+library(igraph) ## density
+library(ggplot2)
+library(dplyr) # %<>%
+library(stringr) # str_replace_all
+
+
+######### Load Data #########
+load("/Users/floramottet/Documents/Pro/Bio-info/Script_Metabar/Data_16S_RhonEco.RData")
+### Reads_table_2_sorted : Samples in rows and MOTUs in columns (number of reads per samples for each MOTU)
+### MOTUs_table_2 : MOTUs in rows and in columns we have "features", "sequence", "count", seq_length", "cluster", "cluster_center" and "cluster_weight" informations
+### File_uc : MOTUs and assignation statistics
+### Table_taxo : MOTUs assignations table J'avais fait une erreur, il faudra prévoir de faire un unique ou de sauver le fichier correctement
+### list_name_pcr : every names of our sequenced PCR (3 pcr per sample)
+### missing_name : PCR without sequenced eDNA
+### pcr_with_reads : PCR with sequenced eDNA
+
+
+######### PCR and extraction controls: Create our variables #########
+### For all controls (PCR and extraction ones) # 166 contrôles
+CONTROL_num <- c(grep('-T-', rownames(Reads_table_2_sorted)), grep('-Text-', rownames(Reads_table_2_sorted)), grep('-Tpcr-', rownames(Reads_table_2_sorted)))
+CONTROL_name <- c(grep('-T-', rownames(Reads_table_2_sorted), value = TRUE), grep('-Text-', rownames(Reads_table_2_sorted), value = TRUE), grep('-Tpcr-', rownames(Reads_table_2_sorted), value = TRUE))
+
+### For PCR controls only # 82 PCR controles
+PCR_CTL_num=grep("-Tpcr-", rownames(Reads_table_2_sorted))
+PCR_CTL_name=grep("-Tpcr-", rownames(Reads_table_2_sorted), value = TRUE)
+
+### For Extraction controls only # 84 extraction control
+EXT_CTL_num=c(grep("-T-", rownames(Reads_table_2_sorted)), grep("-Text-", rownames(Reads_table_2_sorted)))
+EXT_CTL_name=c(grep("-T-", rownames(Reads_table_2_sorted), value = TRUE), grep("-Text-", rownames(Reads_table_2_sorted), value = TRUE))
+
+### Colors
+COL.all=rep("grey",nrow(Reads_table_2_sorted)); COL.all[PCR_CTL_num]="purple"; COL.all[EXT_CTL_num]="green"
+BOR.all=rep("grey",nrow(Reads_table_2_sorted)); BOR.all[PCR_CTL_num]="purple"; BOR.all[EXT_CTL_num]="green"
+
+
+######### Remove samples which don't follow the global distribution of taxa #########
+### Graphes with distribution of data taxa density with and without controls
+par(mfrow=c(1,1))
+D1<-sort(as.vector(log10(rowSums(Reads_table_2_sorted[-CONTROL_num,])))) ## Data without controls => 1263 samples
+D2<-sort(as.vector(log10(rowSums(Reads_table_2_sorted[CONTROL_num,]))))  ## Data with only controls
+D1_True<-density(D1, from=1, to=max(D1)) # only samples, no controls
+sumaclust_tutu<-data.frame(D1_True$x, D1_True$y)
+colnames(sumaclust_tutu)<-c('x', 'y')
+D2_Ctl<-density(D2, from=1, to=max(D1)) # only controls, no samples
+sumaclust_tutu2<-data.frame(D2_Ctl$x, D2_Ctl$y)
+colnames(sumaclust_tutu2)<-c('x', 'y')
+### Distributions
+plot(D1_True)
+lines(D2_Ctl, col='red')
+abline(v=curve_intersect(sumaclust_tutu2, sumaclust_tutu))
+### Intercept of the two curves
+sumaclust.thresh.seqdepth<-curve_intersect(sumaclust_tutu2, sumaclust_tutu)[1]
+sumaclust.thresh.seqdepth # Intercept threshold : 2.597226
+### Remove all samples below the distribution threshold
+row_sums_SMALL <- rowSums(Reads_table_2_sorted) 
+log_sums_SMALL <- log10(row_sums_SMALL)
+lower_log_sums_SMALL <- which(log_sums_SMALL < sumaclust.thresh.seqdepth)
+lines_log_sums_SMALL <- setdiff(lower_log_sums_SMALL, CONTROL_num)
+sumaclust_SMALL <- lines_log_sums_SMALL # 7 samples below threshold
+
+
+######### Number of reads at the beginning #########
+### Number of reads per sample in the dataset at the beginning
+Sum_col <- rowSums(Reads_table_2_sorted)
+max(Sum_col) # 40718 reads max in every samples
+### Number of reads in the whole dataset at the beginning
+Total_reads_start <- sum(Sum_col) # 13 822 332
+### Graphics of reads numbers per sample
+par(mfrow=c(1,1))
+barplot(specnumber(Reads_table_2_sorted, MARGIN=1), col=COL.all, border=BOR.all, ylab="Nb OTUs", las=2, cex.names=0.4) 
+limites_x <- c(0,5)
+limites_y <- c(0,150)
+hist(log10(specnumber(Reads_table_2_sorted)), breaks=40, col="lightgrey", main="", xlab="log10 nb Reads", ylab="Nb samples", xlim=limites_x, ylim=limites_y)
+
+
+######### MOTUs table and similarity with taxonomic assignation #########
+MOTUs_table_3 <- MOTUs_table_2
+MOTUs_table_3$Similarity <- NA
+### Remove empty columns
+MOTUs_table_3 <- MOTUs_table_3[,-3]
+### Similarity of sequences
+File_uc$`Similarity%` <- as.numeric(File_uc$`Similarity%`)
+dim(MOTUs_table_3) # [1] 1 092 494 => Number of OTUs
+### Gathering similarity scores of MOTU sequences against taxonomic assignation in the MOTUs table
+## If a MOTU has been assigned to multiple taxa, we take the highest similarity score
+# Run for 5 hours
+for(i in 1:nrow(MOTUs_table_3)){
+  Nom_seq <- MOTUs_table_3$id[i]
+  lignes <- which(File_uc$SeqID == Nom_seq)
+  if(length(lignes) > 0){ 
+    similarites <- File_uc$`Similarity%`[lignes]
+    if(any(!is.na(similarites))) {
+      ligne_max <- lignes[which.max(similarites)]
+      MOTUs_table_3$Similarity[i] <- File_uc$`Similarity%`[ligne_max]
+    } else {
+      MOTUs_table_3$Similarity[i] <- NA
+    }
+  } else {
+    MOTUs_table_3$Similarity[i] <- NA
+  }
+}
+
+######### Reads and OTUs #########
+# Number of reads and VSearch scores
+MOTUs_table_3$count <- as.numeric(MOTUs_table_3$count)
+MOTUs_table_3[is.na(MOTUs_table_3$Similarity), "Similarity"] <- 0
+MOTUs_table_3[is.na(MOTUs_table_3$count), "count"] <- 0
+weighted.hist(MOTUs_table_3[,"Similarity"],MOTUs_table_3[,"count"], breaks = 30, col="lightgrey", ylab="Nb reads", xlab="VSearch scores",main="Sumaclust")
+# Number of OTUs and VSearch scores
+x_limites <- c(0, 100)
+y_limites <- c(0, 500000)
+hist(MOTUs_table_3$Similarity, breaks=40,col="lightgrey", xlab="VSearch scores", main="Sumaclust", ylab="Nb. OTUs", xlim=x_limites, ylim=y_limites)
+# Cutoff for odd OTUs
+thresh.oddotu=90
+### Remove all MOTUs with a similarity score lower than 90% 
+sumaclust_ODDOTU<-as.integer(rownames(MOTUs_table_3)[which(MOTUs_table_3[, "Similarity"]<thresh.oddotu)]) 
+### Number of clusters removed because unassigned # 51343 OTUs uniques enlevés
+length(unique(MOTUs_table_3$cluster[MOTUs_table_3$Similarity == 0]))
+### Number of clusters total # 89215 OTUs uniques en tout
+length(unique(MOTUs_table_3$cluster))
+### Number of OTUs removed # 130 146 OTUs enlevés en tout
+length(unique(MOTUs_table_3$id[MOTUs_table_3$Similarity == 0]))
+### Number of OTUs total # 1 092 494 OTUs en tout
+length(unique(MOTUs_table_3$id))
+
+
+######### Taxonomic information in table of MOTUs #########
+# Prepare table columns
+MOTUs_table_3$Domaine <- NA
+MOTUs_table_3$Phylum <- NA
+MOTUs_table_3$Classe <- NA
+MOTUs_table_3$Ordre <- NA
+MOTUs_table_3$Famille <- NA
+MOTUs_table_3$Genre <- NA
+# Add Taxonomic Information in the MOTUs Table
+### Run for 6 hours
+for(i in 1:nrow(MOTUs_table_3)){
+  Nom_seq <- MOTUs_table_3$id[i]
+  ligne <- which(Table_taxo$ID == Nom_seq)
+  MOTUs_table_3$Domaine[i] <- Table_taxo$Domaine[ligne]
+  MOTUs_table_3$Phylum[i] <- Table_taxo$Phylum[ligne]
+  MOTUs_table_3$Classe[i] <- Table_taxo$Classe[ligne]
+  MOTUs_table_3$Ordre[i] <- Table_taxo$Ordre[ligne]
+  MOTUs_table_3$Famille[i] <- Table_taxo$Famille[ligne]
+  MOTUs_table_3$Genre[i] <- Table_taxo$Genre[ligne]
+} 
+
+
+######### Taxonomic information: Counts #########
+# Proportions of assignations
+table(MOTUs_table_3$Domaine)
+table(MOTUs_table_3$Phylum)
+table(MOTUs_table_3$Classe)
+table(MOTUs_table_3$Ordre)
+
+
+######### Removing samples with too low amount of reads #########
+### Graphic of reads number per sample
+barplot(rowSums(Reads_table_2_sorted), col=COL.all, border=BOR.all, xlab="Samples", ylab="Nb reads", main='Number of reads per sample', las=2, cex.names=0.4)
+### Graphic of log 10 reads number per sample
+barplot(log10(rowSums(Reads_table_2_sorted)), col=COL.all, border=BOR.all, ylim=c(0,5.5), xlab="Samples", ylab="log (Nb reads)", main='Number of reads per sample', las=2, cex.names=0.4)
+### Remove OTUs found in controls (contaminants) 
+row_sums_SMALL2 <- rowSums(Reads_table_2_sorted)
+log_sums_SMALL2 <- log10(row_sums_SMALL2)
+lower_log_sums_SMALL2 <- which(log_sums_SMALL2 < 2.4)
+lines_log_sums_SMALL2 <- setdiff(lower_log_sums_SMALL2, CONTROL_num)
+sumaclust_SMALL2 <- lines_log_sums_SMALL2 # 7 samples, same ones as in sumaclust_SMALL
+### Number of reads in each control
+rowSums(Reads_table_2_sorted[CONTROL_num,]) # controls have less than 200 reads
+
+
+######### Filtration of low abundance sequences #########
+# decostand normalize the matrix to have 1 as the sum of all the abundances in a row.
+Reads_table_2_rra<-decostand(Reads_table_2_sorted, "total") 
+# To check if every row has a sum equal to 1
+verif_sums_rra <- data.frame(
+  Sample_ID = rownames(Reads_table_2_rra)[abs(rowSums(Reads_table_2_rra) - 1) != 1],
+  Sum = rowSums(Reads_table_2_rra)[abs(rowSums(Reads_table_2_rra) - 1) != 1]
+)
+# Replace all the lowest relative abundances by 0
+for (i in 1:nrow(Reads_table_2_rra)) {
+  Reads_table_2_rra[i, Reads_table_2_rra[i, ] < 0.0001] <- 0
+}
+Reads_table_2_rra <- Matrix(Reads_table_2_rra, sparse = TRUE)
+# Replace in the original file all the lowest abundances by 0
+Reads_table_3 <- Reads_table_2_sorted
+for (i in 1:nrow(Reads_table_3)) {
+  Reads_table_3[i, abs(Reads_table_2_rra[i,]) < 1e-7] <- 0
+}
+# Remove every sequence with similarity assignation score lower than 90%
+MOTUs_table_sans_ODDOTU_temp<-MOTUs_table_3[-sumaclust_ODDOTU,] # Remove 130 146 OTUs unassigned or badly assigned
+
+
+######### Filtration of Eukaryota MOTUs #########
+# Remove every "Eukaryota" MOTUs
+sumaclust_EUKARYOTA <- MOTUs_table_sans_ODDOTU_temp[grep("Eukaryota", MOTUs_table_sans_ODDOTU_temp$Domaine),] 
+MOTUs_table_sans_ODDOTU <- MOTUs_table_sans_ODDOTU_temp[-grep("Eukaryota", MOTUs_table_sans_ODDOTU_temp$Domaine),] 
+# Keep only reads corresponding to good MOTUs
+Reads_table_4<-Reads_table_3[,which(colnames(Reads_table_3) %in% MOTUs_table_sans_ODDOTU$id)] 
+dim(Reads_table_3)
+dim(Reads_table_4) # Difference of 130 256 OTUs (110 eukaryotes and 130 146 badly assigned)
+
+
+######### Agregating sequences per MOTUs #########
+# Remove putative "false" sequences
+Reads_transpo <- as.matrix(t(Reads_table_4))
+Reads_used <- rowsum(Reads_transpo, group = MOTUs_table_sans_ODDOTU$cluster)
+Reads_used_transpo<-t(Reads_used) 
+# New tables with agregated sequences per MOTUs
+New_Motus_Tab<-matrix(NA, ncol=ncol(MOTUs_table_sans_ODDOTU), nrow=ncol(Reads_used_transpo))
+colnames(New_Motus_Tab)<-colnames(MOTUs_table_sans_ODDOTU)
+rownames(New_Motus_Tab)<-colnames(Reads_used_transpo)
+for (i in 1:ncol(Reads_used_transpo)){
+  MyName<-colnames(Reads_used_transpo)[i]
+  MyTab<-MOTUs_table_sans_ODDOTU[which(MOTUs_table_sans_ODDOTU$id == MyName),]
+  if (nrow(MyTab) == 1){
+    New_Motus_Tab[i,]<-as.matrix(MyTab[1,])
+  }
+  if (nrow(MyTab) > 1){
+    MyTab_sort<-MyTab[order(MyTab$count, decreasing=T),]
+    New_Motus_Tab[i,]<-as.matrix(MyTab_sort[1,])
+  }
+} 
+MOTUs_new<-as.data.frame(New_Motus_Tab) # 39 817 OTUs uniques
+Reads_new<-Reads_used_transpo # 1429 rows (samples, PCR replicates) and 39 817 OTUs in columns
+
+
+######### Cleaning MOTUs found in controls #########
+# Identification: OTU detected with max frequency in negative controls + relatives (clustering if done or best_matchID)
+###============= function ContaSlayer
+ContaSlayer=function(x,y,clust=NULL){
+  #x a metabarcoding object (reads)
+  #y a vector of samples names where conta are suspected to be (typically negative controls)
+  require(vegan)
+  x.fcol=decostand(x, "total", 2)
+  x.max=rownames(x.fcol[apply(x.fcol, 2, which.max),])
+  conta=colnames(x)[which(is.na(match(x.max,y))==F)]
+}  
+###============= end
+### Change control names
+sumaclust_conta = ContaSlayer(x=Reads_new,y=CONTROL_name)
+# Number of contaminating MOTUs 
+length(sumaclust_conta) # 18
+# Removing contaminating MOTUs
+sumaclust_CONTA<-which(rownames(MOTUs_new) %in% sumaclust_conta)
+
+
+######### Removing PCR outliers #########
+# Identification of PCR outliers
+Reads_table_5 <- Reads_new
+sumaclust_EMPTY = grep("Empty", rownames(Reads_table_5)) # No empty rowname
+sumaclust_CONTROLS <- c(sumaclust_EMPTY, CONTROL_num)
+metabarlist<-list(reads=Reads_table_5[-sumaclust_CONTROLS,], pcrs=data.frame(row.names=rownames(Reads_table_5)[-sumaclust_CONTROLS], rownames(Reads_table_5)[-sumaclust_CONTROLS]))
+bray_function <- function(reads) {
+  distance_matrix <- vegdist(decostand(reads, method = 'total'), method='bray')
+  return(distance_matrix)
+}
+filter_replicat <- function(sub_matrix, threshold) {
+  replicat_to_remove <- c()
+  if (any(sub_matrix > threshold)) {
+    if (nrow(sub_matrix) == 2) {
+      replicat_to_remove <- c(replicat_to_remove, rownames(sub_matrix))
+    } else {
+      replicat_to_remove <- c(
+        colnames(sub_matrix)[which.max(colSums(sub_matrix))],
+        filter_replicat(
+          sub_matrix[
+            -which.max(colSums(sub_matrix)),
+            -which.max(colSums(sub_matrix))
+          ],
+          threshold
+        )
+      )
+    }
+  }
+  return(replicat_to_remove)
+}
+REPLICATES_CLEAN=as.factor(gsub("-1", "", rownames(Reads_table_5)[-sumaclust_CONTROLS])) # factor, each level is a sample
+REPLICATES_CLEAN=gsub("-2", "", REPLICATES_CLEAN)
+REPLICATES_CLEAN=gsub("-3", "", REPLICATES_CLEAN)
+pcr_outlier <- function(metabarlist,
+                        FUN = bray_function,
+                        groups = REPLICATES_CLEAN,
+                        graphics = TRUE) {
+  if (length(groups) != nrow(metabarlist$pcrs)) {
+    stop("provided groups should have the length of pcrs")
+  }
+  subset_data <- data.frame(
+    groups = groups, replicating = TRUE,
+    row.names = rownames(metabarlist$pcrs)
+  )
+  print(subset_data)
+  subset_data[which(rowSums(metabarlist$reads) == 0), "replicating"] <- FALSE
+  iteration <- 0
+  repeat {
+    iteration <- iteration + 1
+    print(paste("Iteration", iteration))
+    # get only the read for the samples or controls replicating
+    matrix_with_replicate <- metabarlist$reads[
+      rownames(subset_data),
+    ][subset_data$replicating, ]
+    # calculate matrix dist
+    function_result <- FUN(matrix_with_replicate)
+    if (class(function_result) != "dist") {
+      stop("The result of provided function is not correct! The function must return object 'dist'!")
+    }
+    if (length(labels(function_result)) != length(rownames(matrix_with_replicate))) {
+      stop("The result of provided function is not correct! The dimension of function result is not correct!")
+    }
+    if (!all(labels(function_result) %in% rownames(matrix_with_replicate))) {
+      stop("The result of provided function is not correct! The labels of function results not correspond to the data!")
+    }
+    distance_matrix <- as.matrix(function_result)
+    replicates <- subset_data[rownames(distance_matrix), "groups"]
+    within_replicates <- outer(replicates,
+                               replicates,
+                               FUN = "=="
+    ) & upper.tri(distance_matrix)
+    between_replicates <- outer(replicates,
+                                replicates,
+                                FUN = "!="
+    ) & upper.tri(distance_matrix)
+    
+    if (length(distance_matrix[within_replicates]) < 2) {
+      stop("Too many replicates have been remove!")
+    }
+    within_replicate_density <- density(distance_matrix[within_replicates],
+                                        from = 0, to = max(distance_matrix),
+                                        n = 1000
+    )
+    
+    if (length(distance_matrix[between_replicates]) < 2) {
+      stop("Too many replicates have been remove!")
+    }
+    between_replicate_density <- density(distance_matrix[between_replicates],
+                                         from = 0, to = max(distance_matrix),
+                                         n = 1000
+    )
+    within_replicate_density$x<-within_replicate_density$x[-c(1:100)]
+    within_replicate_density$y<-within_replicate_density$y[-c(1:100)]
+    between_replicate_density$x<-between_replicate_density$x[-c(1:100)]
+    between_replicate_density$y<-between_replicate_density$y[-c(1:100)]
+    threshold_distance <- between_replicate_density$x[
+      min(which(within_replicate_density$y < between_replicate_density$y))
+    ]
+    if (graphics) {
+      plot(within_replicate_density$x, within_replicate_density$y,
+           type = "l", xlab = "Distances", ylab = "Density",
+           main = paste("Distances densities iteration", iteration)
+      )
+      lines(between_replicate_density, col = "blue")
+      abline(v = threshold_distance, col = "red")
+      print(threshold_distance)
+    }
+    need_to_be_checked <- unique(subset_data[
+      rownames(which(
+        (distance_matrix > threshold_distance) & within_replicates,
+        arr.ind = T
+      )),
+      "groups"
+    ])
+    if (length(need_to_be_checked) > 0) {
+      for (group in need_to_be_checked) {
+        sub_matrix <-
+          distance_matrix[
+            subset_data[rownames(distance_matrix), "groups"] == group &
+              subset_data[rownames(distance_matrix), "replicating"],
+            subset_data[rownames(distance_matrix), "groups"] == group &
+              subset_data[rownames(distance_matrix), "replicating"]
+          ]
+        non_replicating <- filter_replicat(
+          sub_matrix,
+          threshold_distance
+        )
+        subset_data$replicating[
+          rownames(subset_data) %in% non_replicating
+        ] <- FALSE
+      }
+    }
+    else {
+      break
+    }
+  }
+  #### warning if more than 20% of replicates are removed
+  if (dim(subset_data[subset_data$replicating == F, ])[1] / dim(subset_data)[1] > 0.2) {
+    warning("More than 20% of replicates are removed !")
+  }
+  return(subset_data)
+}
+OUTLIER_PCR<-pcr_outlier(metabarlist, FUN = bray_function, groups = REPLICATES_CLEAN, TRUE)
+rownames(OUTLIER_PCR[which(OUTLIER_PCR[,2]==F),])
+# Remove PCR outliers
+sumaclust_OUTLIERPCR<- which(OUTLIER_PCR[,2]==FALSE) # 74 PCR Outlier
+
+
+######### Taxonomic informations in final files #########
+# Add taxonomic assignments
+MOTUs_new_2 <- MOTUs_new
+Table_taxo_unique <- Table_taxo %>%
+  distinct(ID, .keep_all = TRUE) # check there are no double IDs
+dim(Table_taxo)
+dim(Table_taxo_unique)
+MOTUs_new_2 <- MOTUs_new_2 %>%
+  left_join(Table_taxo_unique, by = c("id" = "ID")) %>%
+  filter(!is.na(id))
+dim(MOTUs_new_2) # [1] 39143    15
+# Remove sequences assigned only at a certain taxonomic level
+sumaclust_ODDTAXO_Ordre=which(is.na(MOTUs_new_2$Ordre)) # 3795 OTUs lost
+sumaclust_ODDTAXO_Classe=which(is.na(MOTUs_new_2$Classe)) # 723
+sumaclust_ODDTAXO_Famille=which(is.na(MOTUs_new_2$Famille)) # 8503
+sumaclust_ODDTAXO_Phylum=which(is.na(MOTUs_new_2$Phylum)) # 2
+sumaclust_ODDTAXO_Domaine=which(is.na(MOTUs_new_2$Domaine)) # 2
+sumaclust_ODDTAXO_Genre=which(is.na(MOTUs_new_2$Genre)) # 16478
+### Final filtration
+sumaclust_final_motus_temp<-MOTUs_new_2[-sumaclust_CONTA,]
+sumaclust_final_motus <- sumaclust_final_motus_temp[-sumaclust_ODDTAXO_Phylum,]
+Reads_table_6 <- Reads_new[,which(colnames(Reads_new) %in% sumaclust_final_motus$id)] 
+sumaclust_final_reads_tmp <- Reads_table_6[-CONTROL_num,]
+sumaclust_final_reads <- sumaclust_final_reads_tmp[-sumaclust_OUTLIERPCR,]
+
+
+######### Merging PCR replicates #########
+# Remove Empty rows and columns in reads and MOTUs tables
+if(any(rowSums(sumaclust_final_reads)==0)) {
+  sumaclust_final_reads_2<-sumaclust_final_reads[-which(rowSums(sumaclust_final_reads)==0),]
+}
+if(any(colSums(sumaclust_final_reads)==0)) {
+  sumaclust_final_reads_2<-sumaclust_final_reads[,-which(colSums(sumaclust_final_reads)==0)]
+}
+sumaclust_final_motus_2 <- sumaclust_final_motus[which(sumaclust_final_motus$id %in% colnames(sumaclust_final_reads_2)),]
+# Recalculate count and occurence of each sequence in the new dataset
+sumaclust_final_motus_2$count<-colSums(sumaclust_final_reads_2)
+Occurence<-specnumber(t(sumaclust_final_reads_2))
+sumaclust_final_motus_3<-data.frame(sumaclust_final_motus_2, Occurence)
+#### BEGINNING OF PCR REPLICATES MERGING
+Multi_Rep<-T # Have replicates of each samples been included in the analysis?
+# If multiple replicates per sample have been included in the analysis, this filtering allows to aggregate replicates from a given sample. Two option for the aggregation: mean of relative read abundance (mean_RRA, data will be analyzed based on rra) or mean of reads (mean_reads, data can be analyzed based on other metrics as rarefied data).
+Agg_Rep<-'sum_reads' #Can be either: mean_RRA or mean_reads or sum_reads
+if (Multi_Rep==T) {
+  if (Agg_Rep=='mean_RRA') {
+    #### Aggregate replicates fronm the same sample: mean of rra (to analyze data from on relative read abundance)
+    MyData<-decostand(sumaclust_final_reads_2, 'total', MARGIN=1)
+    MyData2<-aggregate(MyData, by=list(str_replace_all(rownames(MyData), "-[123]", "")), FUN=mean)
+    rownames(MyData2)<-MyData2[,1]
+    MyData2<-MyData2[,-1]
+    sumaclust_final_reads_rra<-as.matrix(MyData2)
+  }
+  ####
+  if (Agg_Rep=='mean_reads') {
+    #### Aggregate replicates from the same sample: mean of sample reads (to analyzed data from rarefied data)
+    MyData<-as.data.frame(as.matrix(sumaclust_final_reads_2))
+    MyData2<-aggregate(MyData, by=list(str_replace_all(rownames(MyData), "-[123]", "")), FUN=mean)
+    rownames(MyData2)<-MyData2[,1]
+    MyData2<-MyData2[,-1]
+    sumaclust_final_reads_mean<-as.matrix(MyData2)
+  }
+  if (Agg_Rep=='sum_reads') {
+    #### Aggregate replicates from the same sample: mean of sample reads (to analyzed data from rarefied data)
+    MyData<-as.data.frame(as.matrix(sumaclust_final_reads_2))
+    MyData2<-aggregate(MyData, by=list(str_replace_all(rownames(MyData), "-[123]", "")), FUN=sum)
+    rownames(MyData2)<-MyData2[,1]
+    MyData2<-MyData2[,-1]
+    sumaclust_final_reads_sum<-as.matrix(MyData2)
+  }
+}
+#### END OF THE MERGING
+
+
+######### Save files #########
+write.csv(data.frame(sumaclust_final_reads_mean), "/Users/floramottet/Documents/Pro/Bio-info/Communauté_finale_moy_reads_NEW.csv", row.names=T)
+noms_colonnes_reads_ab_moy <- colnames(sumaclust_final_reads_mean)
+writeLines(noms_colonnes_reads_ab_moy, "/Users/floramottet/Documents/Pro/Bio-info/Noms_colonnes_ab_moy_NEW.txt")
+sumaclust_mean_TMP<-t(sumaclust_final_reads_mean)
+write.table(data.frame(sumaclust_final_motus_3,sumaclust_mean_TMP), "/Users/floramottet/Documents/Pro/Bio-info/sumaclust_filtered_data_mean_NEW.txt", row.names=T, sep="\t")
+noms_echa_final <- colnames(sumaclust_mean_TMP)
+writeLines(noms_echa_final, "/Users/floramottet/Documents/Pro/Bio-info/Noms_echa_NEW.txt")
+
+
+write.csv(data.frame(sumaclust_final_reads_rra), "/Users/floramottet/Documents/Pro/Bio-info/Communauté_finale_reads_rra_NEW.csv", row.names=T)
+noms_colonnes_reads_ab_rel <- colnames(sumaclust_final_reads_rra)
+writeLines(noms_colonnes_reads_ab_rel, "/Users/floramottet/Documents/Pro/Bio-info/Noms_colonnes_ab_rel_NEW.txt")
+sumaclust_rra_TMP<-t(sumaclust_final_reads_rra)
+write.table(data.frame(sumaclust_final_motus_3, sumaclust_rra_TMP), "/Users/floramottet/Documents/Pro/Bio-info/sumaclust_filtered_data_rra_NEW.txt", row.names=T, sep="\t")
+
+write.csv(data.frame(sumaclust_final_reads_sum), "/Users/floramottet/Documents/Pro/Bio-info/Communauté_finale_reads_sommes_NEW.csv", row.names=T)
+sumaclust_sum_TMP<-t(sumaclust_final_reads_sum)
+write.table(data.frame(sumaclust_final_motus_3,sumaclust_sum_TMP), "/Users/floramottet/Documents/Pro/Bio-info/sumaclust_filtered_data_sum_NEW.txt", row.names=T, sep="\t")
+noms_colonnes_reads_ab_sum <- colnames(sumaclust_final_reads_sum)
+writeLines(noms_colonnes_reads_ab_sum, "/Users/floramottet/Documents/Pro/Bio-info/Noms_colonnes_ab_sum_NEW.txt")
