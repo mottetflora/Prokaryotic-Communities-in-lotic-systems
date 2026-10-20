@@ -1,13 +1,4 @@
 #!/bin/bash
-#SBATCH -N 1   # node count
-#SBATCH --ntasks-per-node=1  # core count
-#SBATCH --partition=normal
-#SBATCH -t 24:00:00
-#SBATCH --cpus-per-task=4
-#SBATCH --mail-type=ALL
-#SBATCH --mail-user=flora.mottet@univ-lyon1.fr
-
-cd /beegfs/data/fmottet/All_Seasons_RhonEco/ ### Change folder
 
 ######################################
 #### Quality controle with FastQC ####
