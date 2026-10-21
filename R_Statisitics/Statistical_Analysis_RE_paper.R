@@ -206,5 +206,237 @@ round(randtest(inter_classes_typo_taxo)$obs,dig=3);round(randtest(inter_classes_
 inter_classes_sidearm_taxo <- bca(acp_inter_classes_taxo,as.factor(tab_saison_site$Lone),scan=F)
 round(randtest(inter_classes_sidearm_taxo)$obs,dig=3);round(randtest(inter_classes_sidearm_taxo)$pvalue,dig=3)
 
+#### H3: Hydrological connectivity promotes anaerobic taxa ####
+## Specific richness
+Lone_site <- Metadata$Site
+richesse_spe_site <- matrix(NA, nrow = 291, ncol = 1000)
+rownames(richesse_spe_site) <- Metadata$Site_saison
+richesse_moyenne_site <- matrix(NA, nrow = 25, ncol = 1000)
+rownames(richesse_moyenne_site) <- unique(Metadata$Site)
+richesse_sd_site <- matrix(NA, nrow = 25, ncol = 1000)
+rownames(richesse_sd_site) <- unique(Metadata$Site)
+# 1000 Rarefactions to have a mean and no influence of the rarefaction : Can take 10 min
+for(i in 1:1000){
+  # Rarefaction
+  Data_raref_spec_rich <- rrarefy(round(Table_ab_sum, 0), min(round(rowSums(Table_ab_sum), 0)))
+  # Part of specific richness
+  richesse_spe_site[, i] <- specnumber(Data_raref_spec_rich)
+  richesse_moyenne_site[, i] <- tapply(richesse_spe_site[, i], Lone_site, mean)
+  richesse_sd_site[, i] <- tapply(richesse_spe_site[, i], Lone_site, sd)
+}
+table_richesse_moy_site <- data.frame(
+  Richesse_moyenne = apply(richesse_moyenne_site, 1, mean, na.rm = TRUE),
+  SD = apply(richesse_sd_site, 1, sd, na.rm = TRUE)
+)
+table_richesse_moy_site$Site <- rownames(table_richesse_moy_site)
+table_richesse_moy_site$Site <- factor(table_richesse_moy_site$Site, 
+                                       levels = c("GAB-A", "GAB-B", "GAB-C", "MAT-A", "MAT-B", "MAT-C","TON-A", "TON-B", "TON-C",  
+                                                  "MOL-A", "MOL-B", "MOL-C", "PON-A", "PON-B", "PON-C", 
+                                                  "MGA-A", "PLA-A", "PLA-B", "PLA-C", 
+                                                  "BRE-A", "BRE-B", "BRE-C", "SAU-A", "SAU-B", "SAU-C"))
+table_richesse_moy_site$Lone <- substr(table_richesse_moy_site$Site, 1, 3)
+table_richesse_moy_site$Lone <- factor(table_richesse_moy_site$Lone, 
+                                       levels = c("GAB", "MAT", "TON", "MOL", "PON", "MGA", "PLA", "BRE", "SAU"))
+table_richesse_moy_site$Typo <- c(rep("Paleopotamon", 3), rep("Eupotamon", 5), "Plesiopotamon", 
+                                  rep("Parapotamon", 3), rep("Plesiopotamon", 3), 
+                                  rep("Parapotamon", 3), rep("Paleopotamon", 3), rep("Eupotamon", 4))
+table_richesse_moy_site$Typo <- factor(table_richesse_moy_site$Typo, 
+                                       levels = c("Eupotamon", "Parapotamon", "Plesiopotamon", "Paleopotamon"))
+# Generalized Linear Mixed Model
+print("# GLMM and Chi2 test for specific richness ~ Typologie")
+spec_rich_model <- glmmTMB(Richesse_moyenne ~ Typo + (1 | Lone) + (1 | Site), 
+                           family = poisson(link = "log"),
+                           data = table_richesse_moy_site
+)
+spec_rich_null_model <- glmmTMB(Richesse_moyenne ~ 1 + (1 | Lone) + (1 | Site),
+                                family = poisson(link="log"),
+                                data = table_richesse_moy_site
+)
+anova(spec_rich_null_model, spec_rich_model)
+emmeans(spec_rich_model, pairwise ~ Typo)
+table_richesse_moy_site %>%
+  group_by(Typo) %>%
+  summarise(
+    moyenne = mean(Richesse_moyenne),
+    ecart_type = sd(Richesse_moyenne),
+    n = n()
+  )
+
+## Shannon and Simpson indices
+Lone_site <- Metadata$Site
+shannon_site <- matrix(NA, nrow = 291, ncol = 1000)
+rownames(shannon_site) <- Metadata$Site_saison
+shannon_moy_site <- matrix(NA, nrow = 25, ncol = 1000)
+rownames(shannon_moy_site) <- unique(Metadata$Site)
+shannon_sd_site <- matrix(NA, nrow = 25, ncol = 1000)
+rownames(shannon_sd_site) <- unique(Metadata$Site)
+simpson_site <- matrix(NA, nrow = 291, ncol = 1000)
+rownames(simpson_site) <- Metadata$Site_saison
+simpson_moy_site <- matrix(NA, nrow = 25, ncol = 1000)
+rownames(simpson_moy_site) <- unique(Metadata$Site)
+simpson_sd_site <- matrix(NA, nrow = 25, ncol = 1000)
+rownames(simpson_sd_site) <- unique(Metadata$Site)
+
+# 1000 Rarefactions to have a mean and no influence of the rarefaction : Can take 40 min
+for(i in 1:1000){
+  # Rarefaction
+  Data_raref_div_index <- rrarefy(round(Table_ab_sum, 0), min(round(rowSums(Table_ab_sum), 0)))
+  # Part of Shannon index
+  shannon_site[, i] <- diversity(Data_raref_div_index, index = "shannon")
+  shannon_moy_site[, i] <- tapply(shannon_site[, i], Lone_site, mean)
+  shannon_sd_site[, i] <- tapply(shannon_site[, i], Lone_site, sd)
+  # Part of Simpson index
+  simpson_site[, i] <- diversity(Data_raref_div_index, index = "simpson")
+  simpson_moy_site[, i] <- tapply(simpson_site[, i], Lone_site, mean)
+  simpson_sd_site[, i] <- tapply(simpson_site[, i], Lone_site, sd)
+}
+table_shannon_moy <- data.frame(
+  Shannon_moyen = apply(shannon_moy_site, 1, mean, na.rm = TRUE),
+  SD = apply(shannon_sd_site, 1, sd, na.rm = TRUE)
+)
+table_simpson_moy <- data.frame(
+  Simpson_moy = apply(simpson_moy_site, 1, mean, na.rm = TRUE),
+  SD = apply(simpson_sd_site, 1, sd, na.rm = TRUE)
+)
+table_shannon_moy$Site <- rownames(table_shannon_moy)
+table_shannon_moy$Site <- factor(table_shannon_moy$Site, 
+                                 levels = c("GAB-A", "GAB-B", "GAB-C", "MAT-A", "MAT-B", "MAT-C","TON-A", "TON-B", "TON-C",  
+                                            "MOL-A", "MOL-B", "MOL-C", "PON-A", "PON-B", "PON-C", 
+                                            "MGA-A", "PLA-A", "PLA-B", "PLA-C", 
+                                            "BRE-A", "BRE-B", "BRE-C", "SAU-A", "SAU-B", "SAU-C"))
+table_shannon_moy$Lone <- substr(table_shannon_moy$Site, 1, 3)
+table_shannon_moy$Lone <- factor(table_shannon_moy$Lone, 
+                                 levels = c("GAB", "MAT", "TON", "MOL", "PON", "MGA", "PLA", "BRE", "SAU"))
+table_shannon_moy$Typo <- c(rep("Paleopotamon", 3), rep("Eupotamon", 5), "Plesiopotamon", 
+                            rep("Parapotamon", 3), rep("Plesiopotamon", 3), 
+                            rep("Parapotamon", 3), rep("Paleopotamon", 3), rep("Eupotamon", 4))
+table_shannon_moy$Typo <- factor(table_shannon_moy$Typo, 
+                                 levels = c("Eupotamon", "Parapotamon", "Plesiopotamon", "Paleopotamon"))
+table_simpson_moy$Site <- rownames(table_simpson_moy)
+table_simpson_moy$Site <- factor(table_simpson_moy$Site, 
+                                 levels = c("GAB-A", "GAB-B", "GAB-C", "MAT-A", "MAT-B", "MAT-C","TON-A", "TON-B", "TON-C",  
+                                            "MOL-A", "MOL-B", "MOL-C", "PON-A", "PON-B", "PON-C", 
+                                            "MGA-A", "PLA-A", "PLA-B", "PLA-C", 
+                                            "BRE-A", "BRE-B", "BRE-C", "SAU-A", "SAU-B", "SAU-C"))
+table_simpson_moy$Lone <- substr(table_simpson_moy$Site, 1, 3)
+table_simpson_moy$Lone <- factor(table_simpson_moy$Lone, 
+                                 levels = c("GAB", "MAT", "TON", "MOL", "PON", "MGA", "PLA", "BRE", "SAU"))
+table_simpson_moy$Typo <- c(rep("Paleopotamon", 3), rep("Eupotamon", 5), "Plesiopotamon", 
+                            rep("Parapotamon", 3), rep("Plesiopotamon", 3), 
+                            rep("Parapotamon", 3), rep("Paleopotamon", 3), rep("Eupotamon", 4))
+table_simpson_moy$Typo <- factor(table_simpson_moy$Typo, 
+                                 levels = c("Eupotamon", "Parapotamon", "Plesiopotamon", "Paleopotamon"))
+
+# Generalized Linear Mixed Model
+print("# LMM and Chi2 test for shannon index ~ Typologie")
+shannon_model <- glmmTMB(Shannon_moyen ~ Typo + (1 | Lone) + (1 | Site),
+                         family = gaussian(link = "identity"),
+                         data = table_shannon_moy
+)
+shannon_model_null <- glmmTMB(Shannon_moyen ~ 1 + (1 | Lone) + (1 | Site),
+                              family = gaussian(link = "identity"),
+                              data = table_shannon_moy
+)
+anova(shannon_model_null, shannon_model)
+emmeans(shannon_model, pairwise ~ Typo)
+table_shannon_moy %>%
+  group_by(Typo) %>%
+  summarise(
+    moyenne = mean(Shannon_moyen),
+    ecart_type = sd(Shannon_moyen),
+    n = n()
+  )
+print("# LMM and Chi2 test for Simpson index ~ Typologie")
+simpson_model <- glmmTMB(Simpson_moy ~ Typo + (1 | Lone) + (1 | Site),
+                         family = gaussian(link = "identity"),
+                         data = table_simpson_moy
+)
+simpson_model_null <- glmmTMB(Simpson_moy ~ 1 + (1 | Lone) + (1 | Site),
+                              family = gaussian(link = "identity"),
+                              data = table_simpson_moy
+)
+anova(simpson_model_null, simpson_model)
+emmeans(simpson_model, pairwise ~ Typo)
+table_simpson_moy %>%
+  group_by(Typo) %>%
+  summarise(
+    moyenne = mean(Simpson_moy),
+    ecart_type = sd(Simpson_moy),
+    n = n()
+  )
+
+## Phyla Proportions
+bacteries <- Assigned_OTU[Assigned_OTU$Domaine == "Bacteria", ]
+archees <- Assigned_OTU[Assigned_OTU$Domaine == "Archaea", ]
+pct_Data_raref_per_site <- Data_raref_per_site * 100 / rowSums(Data_raref_per_site)
+table(Assigned_OTU$Domaine)
+pct_archees_per_site <- pct_Data_raref_per_site[, colnames(pct_Data_raref_per_site) %in% rownames(archees)]
+pct_bact_per_site <- pct_Data_raref_per_site[, colnames(pct_Data_raref_per_site) %in% rownames(bacteries)]
+## Histogram per phylum
+# Remove unassigned data at domain level (450 OTUs)
+Assigned_Domain <- Assigned_OTU[Assigned_OTU$Domaine != "Other",]
+Assigned_Domain$Domain_Phylum <- paste(Assigned_Domain$Domaine, Assigned_Domain$Phylum, sep = "_")
+pct_phylum_transpo_per_site <- pct_Data_raref_per_site[, colnames(pct_Data_raref_per_site) %in% rownames(Assigned_Domain)]
+pct_phylum_per_site <- rowsum(t(pct_phylum_transpo_per_site), group = Assigned_Domain$Domain_Phylum)
+sort(rowSums(pct_phylum_per_site)/25, decreasing = TRUE)[1:15] # Up to 1%
+phylum_ab_list_per_site <- names(sort(rowSums(pct_phylum_per_site)/25, decreasing = TRUE)[1:15])
+pct_phylum_ab_transpo_per_site <- pct_phylum_per_site[rownames(pct_phylum_per_site) %in% phylum_ab_list_per_site,]
+pct_phylum_other_per_site <- pct_phylum_per_site[!rownames(pct_phylum_per_site) %in% phylum_ab_list_per_site,]
+pct_phylum_ab_transpo_per_site <- rbind(pct_phylum_ab_transpo_per_site, rep(NA, ncol(pct_phylum_ab_transpo_per_site)))
+rownames(pct_phylum_ab_transpo_per_site)[16] <- "Archaea_Other"
+pct_phylum_ab_transpo_per_site <- rbind(pct_phylum_ab_transpo_per_site, rep(NA, ncol(pct_phylum_ab_transpo_per_site)))
+rownames(pct_phylum_ab_transpo_per_site)[17] <- "Bacteria_Other"
+pct_phylum_ab_transpo_per_site[16,] <- colSums(pct_phylum_other_per_site[1:10,])
+pct_phylum_ab_transpo_per_site[17,] <- colSums(pct_phylum_other_per_site[11:73,])
+pct_phylum_ab_per_site <- as.data.frame(t(pct_phylum_ab_transpo_per_site))
+pct_phylum_ab_per_site$Typo <- c(rep("Paleopotamon", 3), 
+                                 rep("Eupotamon", 6), "Plesiopotamon",
+                                 rep("Parapotamon", 3),
+                                 rep("Plesiopotamon", 3),
+                                 rep("Parapotamon", 3),
+                                 rep("Paleopotamon", 3), 
+                                 rep("Eupotamon", 3))
+phylum_long_per_site <- pct_phylum_ab_per_site %>%
+  rownames_to_column(var = "Site") %>%
+  pivot_longer(
+    cols = colnames(pct_phylum_ab_per_site[,1:17]),
+    names_to = "Phylum",
+    values_to = "Proportion"
+  )
+phylum_long_per_site$Typo <- factor(phylum_long_per_site$Typo,
+                                    levels = c("Paleopotamon", "Plesiopotamon", "Parapotamon", "Eupotamon"))
+phylum_long_per_site$Site <- factor(phylum_long_per_site$Site, 
+                                    levels = c("SAU-A", "SAU-B", "SAU-C",
+                                               "BRE-A", "BRE-B", "BRE-C",
+                                               "PLA-A", "PLA-B", "PLA-C", 
+                                               "MGA-A",
+                                               "PON-A", "PON-B", "PON-C", 
+                                               "MOL-A", "MOL-B", "MOL-C",
+                                               "TON-A", "TON-B", "TON-C",
+                                               "MAT-A", "MAT-B", "MAT-C",
+                                               "GAB-A", "GAB-B", "GAB-C"))
+phylum_long_per_site$Phylum <- factor(phylum_long_per_site$Phylum, 
+                                      levels = c("Archaea_Thermoplasmatota", "Archaea_Thermoproteota", "Archaea_Other",
+                                                 "Bacteria_Acidobacteriota", "Bacteria_Bacteroidota", "Bacteria_Candidatus", "Bacteria_Chloroflexota", "Bacteria_Ignavibacteriota", "Bacteria_Latescibacterota", 
+                                                 "Bacteria_Nitrospirota", "Bacteria_Planctomycetota", "Bacteria_Pseudomonadota", "Bacteria_Spirochaetota", 
+                                                 "Bacteria_Sva0485", "Bacteria_Thermodesulfobacteriota", "Bacteria_Verrucomicrobiota", "Bacteria_Other"))
+ggplot(phylum_long_per_site, aes(x = Site, y = Proportion, fill = Phylum)) +
+  geom_col() +
+  scale_fill_manual(values = c("Archaea_Thermoplasmatota" = "#8E0152", "Archaea_Thermoproteota" = "#DE77AE", "Archaea_Other" = "#FDE0EF",
+                               "Bacteria_Acidobacteriota" = "#C6DBEF", "Bacteria_Bacteroidota" ="#4EB3D3", "Bacteria_Candidatus" = "#6BAED6",  "Bacteria_Chloroflexota" = "#4292C6", "Bacteria_Ignavibacteriota" = "#2171B5", "Bacteria_Latescibacterota" = "#0066CC", 
+                               "Bacteria_Nitrospirota" = "#08519C", "Bacteria_Planctomycetota" = "#08306B", "Bacteria_Pseudomonadota" = "#00441B", "Bacteria_Spirochaetota" = "#006D2C", 
+                               "Bacteria_Sva0485" = "#238B45", "Bacteria_Thermodesulfobacteriota" = "#41AE76", "Bacteria_Verrucomicrobiota" = "#66C2A4", "Bacteria_Other" = "#99D8C9")) +
+  labs(x = "Site", y = "Proportion of reads (%)", fill = "Phylum") +
+  facet_wrap(~ Typo, scales = "free_x", space = "free_x") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    panel.spacing = unit(1, "lines")
+  )
+## Proportions of every class
+sort(rowSums(rowsum(t(pct_Data_raref_per_site[, colnames(pct_Data_raref_per_site) %in% rownames(Assigned_Domain)]), group = Assigned_Domain$Classe))/25, decreasing = TRUE)
+## Proportions of every order
+sort(rowSums(rowsum(t(pct_Data_raref_per_site[, colnames(pct_Data_raref_per_site) %in% rownames(Assigned_Domain)]), group = Assigned_Domain$Ordre))/25, decreasing = TRUE)
+
 
 
