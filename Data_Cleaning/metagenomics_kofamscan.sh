@@ -1,0 +1,43 @@
+#! /bin/bash
+
+
+
+exec_annotation AAP38-BRE-A-S2_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/BRE-A-S2_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-BRE-A-S3_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/BRE-A-S3_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-BRE-A-S4_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/BRE-A-S4_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-BRE-A-S5_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/BRE-A-S5_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-GAB-A-S2_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/GAB-A-S2_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-GAB-A-S3_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/GAB-A-S3_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-GAB-A-S4_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/GAB-A-S4_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-GAB-A-S5_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/GAB-A-S5_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-MAT-A-S2_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/MAT-A-S2_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-MAT-A-S3_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/MAT-A-S3_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-MAT-A-S4_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/MAT-A-S4_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-MAT-A-S5_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/MAT-A-S5_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-MGA-A-S2_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/MGA-A-S2_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-MGA-A-S3_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/MGA-A-S3_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-MGA-A-S4_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/MGA-A-S4_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-MGA-A-S5_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/MGA-A-S5_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-MOL-A-S2_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/MOL-A-S2_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+exec_annotation AAP38-MOL-A-S2_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/MOL-A-S2_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+exec_annotation AAP38-MOL-A-S2_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/MOL-A-S2_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-MOL-A-S2_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/MOL-A-S2_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
+
+exec_annotation AAP38-MOL-A-S2_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/MOL-A-S2_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8

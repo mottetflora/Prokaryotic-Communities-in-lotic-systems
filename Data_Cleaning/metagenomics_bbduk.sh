@@ -15,7 +15,7 @@
 # ref : adapters file 
 # tpe : trimming of reads R1 and R2 at the same length
 # tbo : trimming of adapters on paired reads
-# Documentation : https://archive.jgi.doe.gov/data-and-tools/software-tools/bbtools/bb-tools-user-guide/bbduk-guide/
+# Documentation : https://bbmap.org/tools/bbduk 
 
 export PATH=/beegfs/data/soft/jdk1.8.0_201/bin:$PATH
 
