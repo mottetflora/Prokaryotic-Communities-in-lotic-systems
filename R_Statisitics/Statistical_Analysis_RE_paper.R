@@ -69,62 +69,47 @@ colors_sample <- c("GAB_S2" = "#009E73", "GAB_S3" = "#009E73", "GAB_S4" = "#009E
 
 #### H1: Hydrological connectivity influence environmental characteristics of sidearms ####
 ### Environmental variables correlation
-## On plot les variables pour visuellement avoir une idée des variables corrélées
 ## Select only informative data
 tab_var_env_temp <- Metadata_used_agreg[,c(1:10, 13:16, 18:19, 21)]
 # NA Filtration
-tab_var_env_sans_NA <- na.omit(tab_var_env_temp) # On perd 7 sites (S3_MAT_B, S4_PLA_A, S4_PLAC, S4_PON_A, S4_PON_B, S4_SAU_C, S5_SAU_C)
+tab_var_env_sans_NA <- na.omit(tab_var_env_temp) # 7 sites lost (S3_MAT_B, S4_PLA_A, S4_PLAC, S4_PON_A, S4_PON_B, S4_SAU_C, S5_SAU_C)
 Site_Saison_Sans_NA <- tab_var_env_sans_NA$Site_saison
 rownames(tab_var_env_sans_NA) <- tab_var_env_sans_NA$Site_saison
 tab_var_env <- tab_var_env_sans_NA[,]
 rownames(tab_var_env) <- Site_Saison_Sans_NA
-
 tab_var_env$Typologie <- factor(tab_var_env$Typologie, 
                                 levels = c("Eupotamon", "Parapotamon", "Plesiopotamon", "Paleopotamon"))
-
 Metadata_used_agreg_pca <- tab_var_env
-
 colnames(Metadata_used_agreg_pca) <- c("Site_season", "O2", "T", "EC", "pH", "NH4", "PO4", "NO3", "P_bioavail", "Clay", "Chl_a", "DOC", "Ignition", "Connectivity", "Campaign", "Site", "Lone")
-
 res_pca_all <- PCA(Metadata_used_agreg_pca %>% select(2:13), scale.unit = TRUE, graph = FALSE)
 
-# Contribution des variables environnementales :
+# Environmental variables contribution
 res_pca_all$eig
-
-fviz_pca_var(res_pca_all,
-             col.var = "contrib",      
-             gradient.cols = c("#BDBDBD", "#969696", "#252525"),
-             repel = TRUE)  
-
 fviz_pca_var(res_pca_all,
              col.var = "contrib",
              gradient.cols = c("#BDBDBD", "#969696", "#252525"),
              repel = TRUE) +
   scale_x_reverse()
-
 var_pca <- res_pca_all$eig
-pc1_var <- round(var_pca[1,2], 1)   # % pour Dim.1
+pc1_var <- round(var_pca[1,2], 1)
 pc2_var <- round(var_pca[2,2], 1)   
-pc3_var <- round(var_pca[3,2], 1)   # Dim.3
 
-# Tableau pour représentaiton des sites :
+# Sites representation
 coord_sites <- as.data.frame(res_pca_all$ind$coord)
 coord_sites$Lone   <- Metadata_used_agreg_pca$Lone
 coord_sites$Campaign <- Metadata_used_agreg_pca$Campaign
 coord_sites$Connectivity   <- Metadata_used_agreg_pca$Connectivity
 coord_sites$Month_typo <- Metadata_used_agreg_pca$Month_Typo
 coord_sites$Samples <- paste(coord_sites$Lone, coord_sites$Campaign, sep = "_")
-
-# Graphe barycentre typo
 ggplot(coord_sites, aes(x = -Dim.1, y = Dim.2, color = Connectivity)) +
   geom_point(data = coord_sites, aes(color = Connectivity, shape = Campaign), size = 2.5) +
-  #stat_ellipse(aes(color = Connectivity, group = Connectivity)) +
   scale_shape_manual(values = c("S2" = 15, "S3" = 16, "S4" = 17, "S5" = 18),
                      labels = c("May" , "June", "August", "September")) +
-  #geom_point(data = centroides, aes(x = Dim.1, y = Dim.2, color = Connectivity), 
-  #           shape = 4, size = 5, stroke = 2) +
   scale_color_manual(values = colors_typo) +
   labs(x = paste0("Axis 1 (", pc1_var, "%)"), 
        y = paste0("Axis 2 (", pc2_var, "%)"), title = "PCA Envionmental Variables") +
   theme_minimal()
-```
+
+
+
+
