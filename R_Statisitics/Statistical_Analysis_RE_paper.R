@@ -438,7 +438,7 @@ sort(rowSums(rowsum(t(pct_Data_raref_per_site[, colnames(pct_Data_raref_per_site
 ## Proportions of every order
 sort(rowSums(rowsum(t(pct_Data_raref_per_site[, colnames(pct_Data_raref_per_site) %in% rownames(Assigned_Domain)]), group = Assigned_Domain$Ordre))/25, decreasing = TRUE)
 
-#### H4: Which environmental variables explain prokaryotic communities structure? ####
+#### H4: Environmental variables explaining prokaryotic communities structure ####
 ## Environmental Data
 tab_var_env_temp <- Metadata_used_agreg[,c(1:10, 13:16, 18:19, 21)]
 tab_var_env_sans_NA <- na.omit(tab_var_env_temp) # 7 sites lost (S3_MAT_B, S4_PLA_A, S4_PLAC, S4_PON_A, S4_PON_B, S4_SAU_C, S5_SAU_C)
@@ -482,7 +482,7 @@ site_all$Month_Connect <- factor(site_all$Month_Connect,
                                             "S2_Paleo", "S3_Paleo", "S4_Paleo", "S5_Paleo"))
 site_all$Lone <- factor(site_all$Lone, 
                         levels = c("BRE", "GAB", "MAT", "MGA", "MOL", "PLA", "PON", "SAU", "TON"))
-site_all$Typo <- factor(site_all$Typo, levels = c("Eupotamon", "Parapotamon", "Plesiopotamon", "Paleopotamon"))
+site_all$Typo <- factor(site_all$Typo, levels = c("Connected", "Partially connected", "Occasionally connected", "Disconnected"))
 ggplot(site_all, aes(x = sites.CAP1, y = sites.CAP2)) +
   geom_point(data=site_all, size = 4, aes(x=sites.CAP1, y=sites.CAP2, color = Month_Connect, shape = Lone)) +
   labs(col="Hydrological connectivity") +
@@ -497,4 +497,81 @@ ggplot(site_all, aes(x = sites.CAP1, y = sites.CAP2)) +
   theme(plot.title = element_text(size=10)) +
   theme_bw()
 
+#### H5: Some taxa are found only in one hydrological connectivity ####
+# All OTUs
+typo_lone <- data.frame(
+  Site = rownames(Data_raref_per_lone),
+  Typologie = c(
+    "Disconnected", "Connected","Connected", "Occasionally connected", "Partialy connected", "Occasionally connected", "Partialy connected", "Disconnected", "Connected"
+  )
+)
+Data_raref_co <- colnames(Data_raref_per_lone)[colSums(Data_raref_per_lone[c(2, 3, 9),]) > 0]
+Data_raref_pco <- colnames(Data_raref_per_lone)[colSums(Data_raref_per_lone[c(5, 7),]) > 0] 
+Data_raref_oco <- colnames(Data_raref_per_lone)[colSums(Data_raref_per_lone[c(4, 6),]) > 0] 
+Data_raref_dco <- colnames(Data_raref_per_lone)[colSums(Data_raref_per_lone[c(1, 8),]) > 0]
+Data_raref_per_lone_typo <- list("Connected" = Data_raref_co, 
+                                 "Partialy connected" = Data_raref_pco, 
+                                 "Occasionally connected" = Data_raref_oco, 
+                                 "Disconnected" = Data_raref_dco)
+ggVennDiagram(
+  Data_raref_per_lone_typo,
+  label_alpha = 0,
+  set_color = c("#009E73", "#F0E442", "#D55E00", "#000000")
+) +
+  scale_fill_gradient(low = "white", high = "grey")
+# Number of reads per OTUs
+rowSums(Data_raref_per_lone)
+colSums(Data_raref_per_lone)
+nb_reads_per_sample <- 7930
+OTUs_co <- Data_raref_per_lone[colSums(Data_raref_per_lone[c(2, 3, 9),]) > 0]
+OTUs_pco <- Data_raref_per_lone[colSums(Data_raref_per_lone[c(5, 7),]) > 0] 
+OTUs_oco <- Data_raref_per_lone[colSums(Data_raref_per_lone[c(4, 6),]) > 0] 
+OTUs_dco <- Data_raref_per_lone[colSums(Data_raref_per_lone[c(1, 8),]) > 0]
+OTUs_tot <- Data_raref_per_lone[colSums(Data_raref_per_lone) > 0] # 22 433 OTUs abundances > 0
+OTUs_tot <- Data_raref_per_site_per_season[colSums(Data_raref_per_site_per_season) > 0]
+OTUs_all_names <- Reduce(intersect, list(
+  colnames(OTUs_co),
+  colnames(OTUs_pco),
+  colnames(OTUs_oco),
+  colnames(OTUs_dco)
+))
+reads_OTUs_all_names <- rowSums(Data_raref_per_lone[, which(colnames(Data_raref_per_lone) %in% OTUs_all_names)])
+sum(reads_OTUs_all_names)
+(sum(reads_OTUs_all_names)*100) / (nb_reads_per_sample*9)
+# Connected (co)
+OTUs_only_co <- Reduce(setdiff, list(
+  colnames(OTUs_co),
+  c(colnames(OTUs_pco), colnames(OTUs_oco), colnames(OTUs_dco))
+))
+reads_OTUs_only_co <- rowSums(Data_raref_per_lone[, which(colnames(Data_raref_per_lone) %in% OTUs_only_co)])
+sum(reads_OTUs_only_co)
+(sum(reads_OTUs_only_co)*100) / (nb_reads_per_sample*9)
+(sum(reads_OTUs_only_co)*100) / (nb_reads_per_sample*3)
+# Partially connected (pco)
+OTUs_only_pco <- Reduce(setdiff, list(
+  colnames(OTUs_pco),
+  c(colnames(OTUs_co), colnames(OTUs_oco), colnames(OTUs_dco))
+))
+reads_OTUs_only_pco <- rowSums(Data_raref_per_lone[, which(colnames(Data_raref_per_lone) %in% OTUs_only_pco)])
+sum(reads_OTUs_only_pco)
+(sum(reads_OTUs_only_pco)*100) / (nb_reads_per_sample*9)
+(sum(reads_OTUs_only_pco)*100) / (nb_reads_per_sample*2)
+# Occasionally connected (oco)
+OTUs_only_oco <- Reduce(setdiff, list(
+  colnames(OTUs_oco),
+  c(colnames(OTUs_co), colnames(OTUs_pco), colnames(OTUs_paleo))
+))
+reads_OTUs_only_oco <- rowSums(Data_raref_per_lone[, which(colnames(Data_raref_per_lone) %in% OTUs_only_oco)])
+sum(reads_OTUs_only_oco)
+(sum(reads_OTUs_only_oco)*100) / (nb_reads_per_sample*9)
+(sum(reads_OTUs_only_oco)*100) / (nb_reads_per_sample*2)
+# Disconnected (dco)
+OTUs_only_dco <- Reduce(setdiff, list(
+  colnames(OTUs_dco),
+  c(colnames(OTUs_co), colnames(OTUs_pco), colnames(OTUs_oco))
+))
+reads_OTUs_only_dco <- rowSums(Data_raref_per_lone[, which(colnames(Data_raref_per_lone) %in% OTUs_only_dco)])
+sum(reads_OTUs_only_dco)
+(sum(reads_OTUs_only_dco)*100) / (nb_reads_per_sample*9)
+(sum(reads_OTUs_only_dco)*100) / (nb_reads_per_sample*2)
 
