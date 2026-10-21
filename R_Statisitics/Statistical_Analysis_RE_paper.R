@@ -110,6 +110,101 @@ ggplot(coord_sites, aes(x = -Dim.1, y = Dim.2, color = Connectivity)) +
        y = paste0("Axis 2 (", pc2_var, "%)"), title = "PCA Envionmental Variables") +
   theme_minimal()
 
+#### H2: Hydrological connectivity influences prokaryotic communities structure ####
+Table_ab_sum_rel <- decostand(Table_ab_sum, method = "total", MARGIN = 1)
+colSums(Table_ab_sum_rel)
+rowSums(Table_ab_sum_rel)
+## Metadata information
+Table_ab_sum_rel$Lone <- NA
+Table_ab_sum_rel$Nom <- NA
+Table_ab_sum_rel$Typologie <- NA
+Table_ab_sum_rel$Saison <- NA
+Table_ab_sum_rel$Site <- NA
+for(i in (1:nrow(Table_ab_sum_rel))){
+  replicat <- rownames(Table_ab_sum_rel[i,])
+  ligne <- which(gsub("-1$", "", Metadata$Pcr) == replicat)
+  Table_ab_sum_rel$Lone[i] <- Metadata$Lone[ligne]
+  Table_ab_sum_rel$Nom[i] <- Metadata$Nom[ligne]
+  Table_ab_sum_rel$Typologie[i] <- Metadata$Typologie[ligne]
+  Table_ab_sum_rel$Saison[i] <- Metadata$Saison[ligne]
+  Table_ab_sum_rel$Site[i] <- Metadata$Site[ligne]
+}
+## Bray-Curtis matrix
+bray_dist_stand_data_ab_sum <- vegdist(Table_ab_sum_rel[,!names(Table_ab_sum_rel) %in% c("Lone","Saison", "Typologie", "Site", "Nom")], method="bray")
+## Centroids calculation to avoid pseudo-replication
+dist_centroids_all <- dist_multi_centroids(bray_dist_stand_data_ab_sum,
+                                           Metadata$Site_saison, squared = FALSE)
+## PCoA on mean communities by site
+pcoa_com_moy <- pcoa(dist_centroids_all)
+pts_com_moy <- as.data.frame(pcoa_com_moy$vectors[,1:2])
+colnames(pts_com_moy) <- c("PCoA1", "PCoA2")
+eig_pcoa <- pcoa_com_moy$values$Relative_eig * 100
+xlab_pcoa <- paste0("PCoA1 (", round(eig_pcoa[1], 1), "%)")
+ylab_pcoa <- paste0("PCoA2 (", round(eig_pcoa[2], 1), "%)")
+pts_com_moy$Typologie <- Metadata_used_agreg$Typologie 
+pts_com_moy$Campaign <- Metadata_used_agreg$Saison
+pts_com_moy$Nom <- Metadata_used_agreg$Nom
+pts_com_moy$Site <- Metadata_used_agreg$Site
+ggplot(pts_com_moy, aes(x = PCoA1, y = PCoA2, color = Typologie)) +
+  geom_point(data = pts_com_moy, aes(color = Typologie, shape = Campaign), size = 2.5) +
+  stat_ellipse(aes(color = Typologie, group = Typologie)) +
+  scale_shape_manual(values = c("S2" = 15, "S3" = 16, "S4" = 17, "S5" = 18),
+                     labels = c("May" , "June", "August", "September")) +
+  scale_color_manual(values = colors_typo) +
+  coord_cartesian(xlim = c(-0.65, 0.65), ylim = c(-0.4, 0.4)) +
+  labs(x = xlab_pcoa, y = ylab_pcoa, title = "PCoA - Bray Curtis ~ Typologie + Mois") +
+  theme_minimal()
+
+## Between class analysis
+# Environmental variables (same ones as PCA)
+tab_var_env_temp <- Metadata_used_agreg[,c(1:10, 13:15, 18, 20)]
+tab_var_env_sans_NA <- na.omit(tab_var_env_temp) # 7 sites lost
+Site_Saison_Sans_NA <- tab_var_env_sans_NA$Site_saison
+tab_var_env <- tab_var_env_sans_NA[, c(2:13)]
+rownames(tab_var_env) <- Site_Saison_Sans_NA
+# Experimental design
+tab_saison_site <- tab_var_env_sans_NA[, c(14:15)]
+rownames(tab_saison_site) <- Site_Saison_Sans_NA
+tab_saison_site$Lone_Saison <- substr(rownames(tab_saison_site), 1, 6)
+tab_saison_site$Lone <- substr(tab_saison_site$Lone_Saison, 4, 6)
+tab_saison_site$Typo <- c(rep("Paleopotamon", 3), rep("Eupotamon", 5), "Plesiopotamon",
+                          rep("Parapotamon", 3), rep("Plesiopotamon", 3), rep("Parapotamon", 3),
+                          rep("Paleopotamon", 3), rep("Eupotamon", 3), rep("Paleopotamon", 3),
+                          rep("Eupotamon", 4), "Plesiopotamon", rep("Parapotamon", 3),
+                          rep("Plesiopotamon", 3), rep("Parapotamon", 3), rep("Paleopotamon", 3),
+                          rep("Eupotamon", 3), rep("Paleopotamon", 3), rep("Eupotamon", 6),
+                          "Plesiopotamon", rep("Parapotamon", 3), "Plesiopotamon", "Parapotamon",
+                          rep("Paleopotamon", 2), rep("Eupotamon", 3), rep("Paleopotamon", 3),
+                          rep("Eupotamon", 6), "Plesiopotamon", rep("Parapotamon", 3),
+                          rep("Plesiopotamon", 3), rep("Parapotamon", 3), rep("Paleopotamon", 2),
+                          rep("Eupotamon", 3))
+tab_saison_site$Saison <- as.factor(tab_saison_site$Saison)
+tab_saison_site$Site <- as.factor(tab_saison_site$Site)
+tab_saison_site$Lone_Saison <- as.factor(tab_saison_site$Lone_Saison)
+tab_saison_site$Lone <- as.factor(tab_saison_site$Lone)
+tab_saison_site$Typo <- as.factor(tab_saison_site$Typo)
+rownames(tab_saison_site) <- Site_Saison_Sans_NA
+## OTUs data (raw counts needed)
+Table_ab_sum_agreg_temp <- aggregate(
+  Table_ab_sum,
+  by = list(Site = substr(rownames(Table_ab_sum), 1, 8)),
+  FUN = mean
+)
+rownames(Table_ab_sum_agreg_temp) <- Table_ab_sum_agreg_temp$Site
+Table_ab_sum_agreg <- Table_ab_sum_agreg_temp[Site_Saison_Sans_NA, ]
+Table_ab_sum_agreg <- Table_ab_sum_agreg[, -c(1)]
+tab_compt <- decostand(Table_ab_sum_agreg, "hellinger")
+# Between class analysis 
+acp_inter_classes_taxo <- dudi.pca(tab_compt,scan=F,nf=2)
+# Sampling campaign
+inter_classes_saison_taxo <- bca(acp_inter_classes_taxo,as.factor(tab_saison_site$Saison),scan=F)
+round(randtest(inter_classes_saison_taxo)$obs,dig=3);round(randtest(inter_classes_saison_taxo)$pvalue,dig=3)
+# Hydrological connectivity
+inter_classes_typo_taxo <- bca(acp_inter_classes_taxo,as.factor(tab_saison_site$Typo),scan=F)
+round(randtest(inter_classes_typo_taxo)$obs,dig=3);round(randtest(inter_classes_typo_taxo)$pvalue,dig=3)
+# Sidearm
+inter_classes_sidearm_taxo <- bca(acp_inter_classes_taxo,as.factor(tab_saison_site$Lone),scan=F)
+round(randtest(inter_classes_sidearm_taxo)$obs,dig=3);round(randtest(inter_classes_sidearm_taxo)$pvalue,dig=3)
 
 
 
