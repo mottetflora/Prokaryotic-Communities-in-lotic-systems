@@ -44,14 +44,14 @@ colors_site <- c("GAB-A" = "#009E73", "GAB-B" = "#009E73", "GAB-C" = "#009E73",
                  "PON-A" = "#F0E442", "PON-B" = "#F0E442", "PON-C" = "#F0E442", 
                  "MGA-A" = "#D55E00", 
                  "PLA" = "#D55E00", "BRE" = "#000000", "SAU" = "#000000")
-colors_typo <- c("Eupotamon" = "#009E73", "Parapotamon" = "#F0E442", "Plesiopotamon" =  "#D55E00", "Paleopotamon" = "#000000")
+colors_typo <- c("Connected" = "#009E73", "Partially connected" = "#F0E442", "Occasionally connected" =  "#D55E00", "Disconnected" = "#000000")
 colors_campaign <- c("S2" = "#543005", "S3" = "#8C510A", "S4" = "#BF812D", "S5" = "#DFC27D")
-colors_typo_boxplot <- c("Eupotamon" = "#009E73", "Parapotamon" = "#F0E442", "Plesiopotamon" =  "#D55E00", "Paleopotamon" = "#252525")
+colors_typo_boxplot <- c("Connected" = "#009E73", "Partially connected" = "#F0E442", "Occasionally connected" =  "#D55E00", "Disconnected" = "#252525")
 
-color_typo_season <- c("S2_Eupo" = "#A1D99B","S3_Eupo" = "#74C476", "S4_Eupo" = "#009E73", "S5_Eupo" = "#00441B",
-                       "S2_Para" = "#F0E442", "S3_Para" = "#E6AB02", "S4_Para" = "#A6761D", "S5_Para" = "#543005", 
-                       "S2_Plesio" = "#FC8D59", "S3_Plesio" = "#D55E00", "S4_Plesio" = "#D7301F", "S5_Plesio" = "#8B0000", 
-                       "S2_Paleo" = "#BDBDBD", "S3_Paleo" = "#737373" , "S4_Paleo" = "#525252", "S5_Paleo" = "#000000")
+color_typo_season <- c("S2_co" = "#A1D99B","S3_co" = "#74C476", "S4_co" = "#009E73", "S5_co" = "#00441B",
+                       "S2_pco" = "#F0E442", "S3_pco" = "#E6AB02", "S4_pco" = "#A6761D", "S5_pco" = "#543005", 
+                       "S2_oco" = "#FC8D59", "S3_oco" = "#D55E00", "S4_oco" = "#D7301F", "S5_oco" = "#8B0000", 
+                       "S2_dco" = "#BDBDBD", "S3_dco" = "#737373" , "S4_dco" = "#525252", "S5_dco" = "#000000")
 
 colors_sample <- c("GAB_S2" = "#009E73", "GAB_S3" = "#009E73", "GAB_S4" = "#009E73", "GAB_S5" = "#009E73", 
                    "MAT_S2" = "#009E73", "MAT_S3" = "#009E73", "MAT_S4" = "#009E73", "MAT_S5" = "#009E73", 
@@ -78,7 +78,7 @@ rownames(tab_var_env_sans_NA) <- tab_var_env_sans_NA$Site_saison
 tab_var_env <- tab_var_env_sans_NA[,]
 rownames(tab_var_env) <- Site_Saison_Sans_NA
 tab_var_env$Typologie <- factor(tab_var_env$Typologie, 
-                                levels = c("Eupotamon", "Parapotamon", "Plesiopotamon", "Paleopotamon"))
+                                levels = c("Connected", "Partially connected", "Occasionally connected", "Disconnected"))
 Metadata_used_agreg_pca <- tab_var_env
 colnames(Metadata_used_agreg_pca) <- c("Site_season", "O2", "T", "EC", "pH", "NH4", "PO4", "NO3", "P_bioavail", "Clay", "Chl_a", "DOC", "Ignition", "Connectivity", "Campaign", "Site", "Lone")
 res_pca_all <- PCA(Metadata_used_agreg_pca %>% select(2:13), scale.unit = TRUE, graph = FALSE)
@@ -167,17 +167,17 @@ tab_saison_site <- tab_var_env_sans_NA[, c(14:15)]
 rownames(tab_saison_site) <- Site_Saison_Sans_NA
 tab_saison_site$Lone_Saison <- substr(rownames(tab_saison_site), 1, 6)
 tab_saison_site$Lone <- substr(tab_saison_site$Lone_Saison, 4, 6)
-tab_saison_site$Typo <- c(rep("Paleopotamon", 3), rep("Eupotamon", 5), "Plesiopotamon",
-                          rep("Parapotamon", 3), rep("Plesiopotamon", 3), rep("Parapotamon", 3),
-                          rep("Paleopotamon", 3), rep("Eupotamon", 3), rep("Paleopotamon", 3),
-                          rep("Eupotamon", 4), "Plesiopotamon", rep("Parapotamon", 3),
-                          rep("Plesiopotamon", 3), rep("Parapotamon", 3), rep("Paleopotamon", 3),
-                          rep("Eupotamon", 3), rep("Paleopotamon", 3), rep("Eupotamon", 6),
-                          "Plesiopotamon", rep("Parapotamon", 3), "Plesiopotamon", "Parapotamon",
-                          rep("Paleopotamon", 2), rep("Eupotamon", 3), rep("Paleopotamon", 3),
-                          rep("Eupotamon", 6), "Plesiopotamon", rep("Parapotamon", 3),
-                          rep("Plesiopotamon", 3), rep("Parapotamon", 3), rep("Paleopotamon", 2),
-                          rep("Eupotamon", 3))
+tab_saison_site$Typo <- c(rep("Disconnected", 3), rep("Connected", 5), "Occasionally connected",
+                          rep("Partially connected", 3), rep("Occasionally connected", 3), rep("Partially connected", 3),
+                          rep("Disconnected", 3), rep("Connected", 3), rep("Disconnected", 3),
+                          rep("Connected", 4), "Occasionally connected", rep("Partially connected", 3),
+                          rep("Occasionally connected", 3), rep("Partially connected", 3), rep("Disconnected", 3),
+                          rep("Connected", 3), rep("Disconnected", 3), rep("Connected", 6),
+                          "Occasionally connected", rep("Partially connected", 3), "Occasionally connected", "Partially connected",
+                          rep("Disconnected", 2), rep("Connected", 3), rep("Disconnected", 3),
+                          rep("Connected", 6), "Occasionally connected", rep("Partially connected", 3),
+                          rep("Occasionally connected", 3), rep("Partially connected", 3), rep("Disconnected", 2),
+                          rep("Connected", 3))
 tab_saison_site$Saison <- as.factor(tab_saison_site$Saison)
 tab_saison_site$Site <- as.factor(tab_saison_site$Site)
 tab_saison_site$Lone_Saison <- as.factor(tab_saison_site$Lone_Saison)
@@ -237,11 +237,11 @@ table_richesse_moy_site$Site <- factor(table_richesse_moy_site$Site,
 table_richesse_moy_site$Lone <- substr(table_richesse_moy_site$Site, 1, 3)
 table_richesse_moy_site$Lone <- factor(table_richesse_moy_site$Lone, 
                                        levels = c("GAB", "MAT", "TON", "MOL", "PON", "MGA", "PLA", "BRE", "SAU"))
-table_richesse_moy_site$Typo <- c(rep("Paleopotamon", 3), rep("Eupotamon", 5), "Plesiopotamon", 
-                                  rep("Parapotamon", 3), rep("Plesiopotamon", 3), 
-                                  rep("Parapotamon", 3), rep("Paleopotamon", 3), rep("Eupotamon", 4))
+table_richesse_moy_site$Typo <- c(rep("Disconnected", 3), rep("Connected", 5), "Occasionally connected", 
+                                  rep("Partially connected", 3), rep("Occasionally connected", 3), 
+                                  rep("Partially connected", 3), rep("Disconnected", 3), rep("Connected", 4))
 table_richesse_moy_site$Typo <- factor(table_richesse_moy_site$Typo, 
-                                       levels = c("Eupotamon", "Parapotamon", "Plesiopotamon", "Paleopotamon"))
+                                       levels = c("Connected", "Partially connected", "Occasionally connected", "Disconnected"))
 # Generalized Linear Mixed Model
 print("# GLMM and Chi2 test for specific richness ~ Typologie")
 spec_rich_model <- glmmTMB(Richesse_moyenne ~ Typo + (1 | Lone) + (1 | Site), 
@@ -307,11 +307,11 @@ table_shannon_moy$Site <- factor(table_shannon_moy$Site,
 table_shannon_moy$Lone <- substr(table_shannon_moy$Site, 1, 3)
 table_shannon_moy$Lone <- factor(table_shannon_moy$Lone, 
                                  levels = c("GAB", "MAT", "TON", "MOL", "PON", "MGA", "PLA", "BRE", "SAU"))
-table_shannon_moy$Typo <- c(rep("Paleopotamon", 3), rep("Eupotamon", 5), "Plesiopotamon", 
-                            rep("Parapotamon", 3), rep("Plesiopotamon", 3), 
-                            rep("Parapotamon", 3), rep("Paleopotamon", 3), rep("Eupotamon", 4))
+table_shannon_moy$Typo <- c(rep("Disconnected", 3), rep("Connected", 5), "Occasionally connected", 
+                            rep("Partially connected", 3), rep("Occasionally connected", 3), 
+                            rep("Partially connected", 3), rep("Disconnected", 3), rep("Connected", 4))
 table_shannon_moy$Typo <- factor(table_shannon_moy$Typo, 
-                                 levels = c("Eupotamon", "Parapotamon", "Plesiopotamon", "Paleopotamon"))
+                                 levels = c("Connected", "Partially connected", "Occasionally connected", "Disconnected"))
 table_simpson_moy$Site <- rownames(table_simpson_moy)
 table_simpson_moy$Site <- factor(table_simpson_moy$Site, 
                                  levels = c("GAB-A", "GAB-B", "GAB-C", "MAT-A", "MAT-B", "MAT-C","TON-A", "TON-B", "TON-C",  
@@ -321,11 +321,11 @@ table_simpson_moy$Site <- factor(table_simpson_moy$Site,
 table_simpson_moy$Lone <- substr(table_simpson_moy$Site, 1, 3)
 table_simpson_moy$Lone <- factor(table_simpson_moy$Lone, 
                                  levels = c("GAB", "MAT", "TON", "MOL", "PON", "MGA", "PLA", "BRE", "SAU"))
-table_simpson_moy$Typo <- c(rep("Paleopotamon", 3), rep("Eupotamon", 5), "Plesiopotamon", 
-                            rep("Parapotamon", 3), rep("Plesiopotamon", 3), 
-                            rep("Parapotamon", 3), rep("Paleopotamon", 3), rep("Eupotamon", 4))
+table_simpson_moy$Typo <- c(rep("Disconnected", 3), rep("Connected", 5), "Occasionally connected", 
+                            rep("Partially connected", 3), rep("Occasionally connected", 3), 
+                            rep("Partially connected", 3), rep("Disconnected", 3), rep("Connected", 4))
 table_simpson_moy$Typo <- factor(table_simpson_moy$Typo, 
-                                 levels = c("Eupotamon", "Parapotamon", "Plesiopotamon", "Paleopotamon"))
+                                 levels = c("Connected", "Partially connected", "Occasionally connected", "Disconnected"))
 
 # Generalized Linear Mixed Model
 print("# LMM and Chi2 test for shannon index ~ Typologie")
@@ -389,13 +389,13 @@ rownames(pct_phylum_ab_transpo_per_site)[17] <- "Bacteria_Other"
 pct_phylum_ab_transpo_per_site[16,] <- colSums(pct_phylum_other_per_site[1:10,])
 pct_phylum_ab_transpo_per_site[17,] <- colSums(pct_phylum_other_per_site[11:73,])
 pct_phylum_ab_per_site <- as.data.frame(t(pct_phylum_ab_transpo_per_site))
-pct_phylum_ab_per_site$Typo <- c(rep("Paleopotamon", 3), 
-                                 rep("Eupotamon", 6), "Plesiopotamon",
-                                 rep("Parapotamon", 3),
-                                 rep("Plesiopotamon", 3),
-                                 rep("Parapotamon", 3),
-                                 rep("Paleopotamon", 3), 
-                                 rep("Eupotamon", 3))
+pct_phylum_ab_per_site$Typo <- c(rep("Disconnected", 3), 
+                                 rep("Connected", 6), "Occasionally connected",
+                                 rep("Partially connected", 3),
+                                 rep("Occasionally connected", 3),
+                                 rep("Partially connected", 3),
+                                 rep("Disconnected", 3), 
+                                 rep("Connected", 3))
 phylum_long_per_site <- pct_phylum_ab_per_site %>%
   rownames_to_column(var = "Site") %>%
   pivot_longer(
@@ -404,7 +404,7 @@ phylum_long_per_site <- pct_phylum_ab_per_site %>%
     values_to = "Proportion"
   )
 phylum_long_per_site$Typo <- factor(phylum_long_per_site$Typo,
-                                    levels = c("Paleopotamon", "Plesiopotamon", "Parapotamon", "Eupotamon"))
+                                    levels = c("Disconnected", "Occasionally connected", "Partially connected", "Connected"))
 phylum_long_per_site$Site <- factor(phylum_long_per_site$Site, 
                                     levels = c("SAU-A", "SAU-B", "SAU-C",
                                                "BRE-A", "BRE-B", "BRE-C",
@@ -476,13 +476,13 @@ site_all$Lone <- tab_var_env_sans_NA$Lone
 site_all$Month_Connect <- tab_var_env_sans_NA$Month_Typo
 site_all$Typo <- tab_var_env_sans_NA$Typologie
 site_all$Month_Connect <- factor(site_all$Month_Connect, 
-                                 levels = c("S2_Eupo","S3_Eupo", "S4_Eupo", "S5_Eupo",
-                                            "S2_Para", "S3_Para", "S4_Para", "S5_Para", 
-                                            "S2_Plesio", "S3_Plesio", "S4_Plesio", "S5_Plesio", 
-                                            "S2_Paleo", "S3_Paleo", "S4_Paleo", "S5_Paleo"))
+                                 levels = c("S2_co","S3_co", "S4_co", "S5_co",
+                                            "S2_pco", "S3_pco", "S4_pco", "S5_pco", 
+                                            "S2_oco", "S3_oco", "S4_oco", "S5_oco", 
+                                            "S2_dco", "S3_dco", "S4_dco", "S5_dco"))
 site_all$Lone <- factor(site_all$Lone, 
                         levels = c("BRE", "GAB", "MAT", "MGA", "MOL", "PLA", "PON", "SAU", "TON"))
-site_all$Typo <- factor(site_all$Typo, levels = c("Eupotamon", "Parapotamon", "Plesiopotamon", "Paleopotamon"))
+site_all$Typo <- factor(site_all$Typo, levels = c("Connected", "Partially connected", "Occasionally connected", "Disconnected"))
 ggplot(site_all, aes(x = sites.CAP1, y = sites.CAP2)) +
   geom_point(data=site_all, size = 4, aes(x=sites.CAP1, y=sites.CAP2, color = Month_Connect, shape = Lone)) +
   labs(col="Hydrological connectivity") +
@@ -502,7 +502,7 @@ ggplot(site_all, aes(x = sites.CAP1, y = sites.CAP2)) +
 typo_lone <- data.frame(
   Site = rownames(Data_raref_per_lone),
   Typologie = c(
-    "Disconnected", "Connected","Connected", "Occasionally connected", "Partialy connected", "Occasionally connected", "Partialy connected", "Disconnected", "Connected"
+    "Disconnected", "Connected","Connected", "Occasionally connected", "Partially connected", "Occasionally connected", "Partially connected", "Disconnected", "Connected"
   )
 )
 Data_raref_co <- colnames(Data_raref_per_lone)[colSums(Data_raref_per_lone[c(2, 3, 9),]) > 0]
@@ -510,7 +510,7 @@ Data_raref_pco <- colnames(Data_raref_per_lone)[colSums(Data_raref_per_lone[c(5,
 Data_raref_oco <- colnames(Data_raref_per_lone)[colSums(Data_raref_per_lone[c(4, 6),]) > 0] 
 Data_raref_dco <- colnames(Data_raref_per_lone)[colSums(Data_raref_per_lone[c(1, 8),]) > 0]
 Data_raref_per_lone_typo <- list("Connected" = Data_raref_co, 
-                                 "Partialy connected" = Data_raref_pco, 
+                                 "Partially connected" = Data_raref_pco, 
                                  "Occasionally connected" = Data_raref_oco, 
                                  "Disconnected" = Data_raref_dco)
 ggVennDiagram(
