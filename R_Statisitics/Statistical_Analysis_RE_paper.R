@@ -438,5 +438,63 @@ sort(rowSums(rowsum(t(pct_Data_raref_per_site[, colnames(pct_Data_raref_per_site
 ## Proportions of every order
 sort(rowSums(rowsum(t(pct_Data_raref_per_site[, colnames(pct_Data_raref_per_site) %in% rownames(Assigned_Domain)]), group = Assigned_Domain$Ordre))/25, decreasing = TRUE)
 
+#### H4: Which environmental variables explain prokaryotic communities structure? ####
+## Environmental Data
+tab_var_env_temp <- Metadata_used_agreg[,c(1:10, 13:16, 18:19, 21)]
+tab_var_env_sans_NA <- na.omit(tab_var_env_temp) # 7 sites lost (S3_MAT_B, S4_PLA_A, S4_PLAC, S4_PON_A, S4_PON_B, S4_SAU_C, S5_SAU_C)
+Site_Saison_Sans_NA <- tab_var_env_sans_NA$Site_saison
+tab_var_env <- tab_var_env_sans_NA[, -c(1, 14, 16:17)]
+rownames(tab_var_env) <- Site_Saison_Sans_NA
+## Taxonomic data
+stand_data_ab_sum_db_RDA <- decostand(Table_ab_sum, "hellinger")
+bray_dist_stand_data_ab_sum_db_RDA <- vegdist(stand_data_ab_sum_db_RDA, method="bray", 1)
+groups <- substr(rownames(stand_data_ab_sum_db_RDA), 1, 8)
+centroid_dist_site <- as.matrix(dist_multi_centroids(bray_dist_stand_data_ab_sum_db_RDA, groups))
+centroid_dist_site_sans_NA <- centroid_dist_site[which(rownames(centroid_dist_site) %in% Site_Saison_Sans_NA),which(colnames(centroid_dist_site) %in% Site_Saison_Sans_NA)]
+## db-RDA constrained by Sampling Campaign
+vif.cca(capscale(centroid_dist_site_sans_NA ~ ., data = tab_var_env[, -13])) 
+rda_all_seasons_min <- capscale(centroid_dist_site_sans_NA ~ 1 + Condition(Saison),data = tab_var_env) 
+rda_all_seasons_max <- capscale(centroid_dist_site_sans_NA ~ O2_mg + T + cond + pH + NH4_col + PO4_col + NO3_col + Pbiodispo_bentho + clay_pct + chla_col + COD_col + paf_bentho + Condition(Saison),data = tab_var_env)
+sel_centroid_dist_rda_site <- ordiR2step(rda_all_seasons_min,
+                                         scope = rda_all_seasons_max,
+                                         direction = "both",
+                                         R2scope = TRUE,
+                                         pstep = 1000,
+                                         trace = FALSE)
+sel_centroid_dist_rda_site
+centroid_dist_rda <- capscale(formula = centroid_dist_site_sans_NA ~ Condition(Saison) + paf_bentho + COD_col + O2_mg + T + clay_pct, data = tab_var_env)
+RsquareAdj(centroid_dist_rda) 
+anova(centroid_dist_rda, permutations = 999)
+anova.cca(centroid_dist_rda, by = "margin")
+## Graphes
+text_cap1_all <- paste("CAP1 (",(3.1702/11.2455)*100," %)")
+text_cap2_all <- paste("CAP2 (",(0.2886/11.2455)*100," %)")
+site_all <- as.data.frame(scores(centroid_dist_rda)[2])
+variables_all <-as.data.frame(scores(centroid_dist_rda)[4])
+rownames(variables_all) <- c("Ignition", "DOC", "O2", "T", "CLAY")
+site_all$Lone <- tab_var_env_sans_NA$Lone
+site_all$Month_Connect <- tab_var_env_sans_NA$Month_Typo
+site_all$Typo <- tab_var_env_sans_NA$Typologie
+site_all$Month_Connect <- factor(site_all$Month_Connect, 
+                                 levels = c("S2_Eupo","S3_Eupo", "S4_Eupo", "S5_Eupo",
+                                            "S2_Para", "S3_Para", "S4_Para", "S5_Para", 
+                                            "S2_Plesio", "S3_Plesio", "S4_Plesio", "S5_Plesio", 
+                                            "S2_Paleo", "S3_Paleo", "S4_Paleo", "S5_Paleo"))
+site_all$Lone <- factor(site_all$Lone, 
+                        levels = c("BRE", "GAB", "MAT", "MGA", "MOL", "PLA", "PON", "SAU", "TON"))
+site_all$Typo <- factor(site_all$Typo, levels = c("Eupotamon", "Parapotamon", "Plesiopotamon", "Paleopotamon"))
+ggplot(site_all, aes(x = sites.CAP1, y = sites.CAP2)) +
+  geom_point(data=site_all, size = 4, aes(x=sites.CAP1, y=sites.CAP2, color = Month_Connect, shape = Lone)) +
+  labs(col="Hydrological connectivity") +
+  geom_segment(data=variables_all,aes(x=biplot.CAP1*0, y=biplot.CAP2*0, xend=biplot.CAP1*2, yend=biplot.CAP2*2), arrow = arrow(length = unit(0.15, "cm"))) +
+  geom_text_repel(data=variables_all,aes(x=biplot.CAP1*2,y=biplot.CAP2*2,label=rownames(variables_all))) +
+  scale_color_manual(values = color_typo_season) +
+  scale_shape_manual(values = c("BRE" = 9, "GAB" = 15, "MAT" = 7,
+                                "MGA" = 17, "MOL" = 10, "PLA" = 6, 
+                                "PON" = 16, "SAU" = 18, "TON" = 12)) +
+  labs(x=text_cap1_all, y=text_cap2_all) +
+  ggtitle("db-RDA for All Seasons") +
+  theme(plot.title = element_text(size=10)) +
+  theme_bw()
 
 
