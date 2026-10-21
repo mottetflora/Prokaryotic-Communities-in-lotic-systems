@@ -482,7 +482,7 @@ site_all$Month_Connect <- factor(site_all$Month_Connect,
                                             "S2_Paleo", "S3_Paleo", "S4_Paleo", "S5_Paleo"))
 site_all$Lone <- factor(site_all$Lone, 
                         levels = c("BRE", "GAB", "MAT", "MGA", "MOL", "PLA", "PON", "SAU", "TON"))
-site_all$Typo <- factor(site_all$Typo, levels = c("Connected", "Partially connected", "Occasionally connected", "Disconnected"))
+site_all$Typo <- factor(site_all$Typo, levels = c("Eupotamon", "Parapotamon", "Plesiopotamon", "Paleopotamon"))
 ggplot(site_all, aes(x = sites.CAP1, y = sites.CAP2)) +
   geom_point(data=site_all, size = 4, aes(x=sites.CAP1, y=sites.CAP2, color = Month_Connect, shape = Lone)) +
   labs(col="Hydrological connectivity") +
