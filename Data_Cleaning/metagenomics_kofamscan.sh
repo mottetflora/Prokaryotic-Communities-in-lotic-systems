@@ -1,5 +1,14 @@
 #! /bin/bash
 
+# KofamScan uses KEGG Orthologs to assign functions to predicted ORFs
+# First, input file with ORFs predicted previously using prodigal
+# -o : for output file
+# -f : mapper to use functional profiling
+# -E : e-value max accepted
+# -k : official list of prokaryotic KOs from KEGG database
+# -p : functional profiles from KEGG database
+# --cpu : number of cpu used
+
 exec_annotation AAP38-BRE-A-S2_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/BRE-A-S2_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
 exec_annotation AAP38-BRE-A-S3_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/BRE-A-S3_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
 exec_annotation AAP38-BRE-A-S4_output_protein.faa -o /home/serveur-mhugoni/Bureau/2026_Flora/BRE-A-S4_kofam.txt -f mapper -E 1e-15 -k ko_list_07_2025 -p profiles_07_2025 --cpu 8
