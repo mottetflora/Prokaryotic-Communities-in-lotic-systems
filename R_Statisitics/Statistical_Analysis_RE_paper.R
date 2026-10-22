@@ -575,3 +575,108 @@ sum(reads_OTUs_only_dco)
 (sum(reads_OTUs_only_dco)*100) / (nb_reads_per_sample*9)
 (sum(reads_OTUs_only_dco)*100) / (nb_reads_per_sample*2)
 
+
+#################################################
+############## Functional Analyses ##############
+#################################################
+#### H6: Hydrological connectivity influences prokaryotic functional profiles structure ####
+## Environmental Data
+tab_var_env_temp_all_KO <- Metadata_metaG[,c(10:18, 22:23)]
+tab_var_env_all_KO_sans_NA <- na.omit(tab_var_env_temp_all_KO) 
+Site_Saison_Sans_NA_all_KO <- rownames(tab_var_env_all_KO_sans_NA)
+tab_var_env_all_KO_used <- tab_var_env_all_KO_sans_NA # PON_S4 and PLA_S4 lost (pH missing)
+## Experimental design
+tab_saison_site <- Metadata_metaG[which(rownames(Metadata_metaG) %in% Site_Saison_Sans_NA_all_KO), c(4:6)]
+tab_saison_site$Sampling_campaign <- as.factor(tab_saison_site$Sampling_campaign)
+tab_saison_site$Lone <- as.factor(tab_saison_site$Lone)
+tab_saison_site$Lone <- factor(tab_saison_site$Lone, 
+                               levels = c("GAB", "MAT", "TON", "MOL", "PON", "MGA", "PLA", "BRE", "SAU"))
+tab_saison_site$Connectivity <- factor(tab_saison_site$Connectivity, 
+                                       levels = c("Connected", "Partially connected", "Occasionally connected", "Disconnected"))
+## KO data
+tab_compt_temp <- as.data.frame(t(KO_Samples_tab))
+rownames(tab_compt_temp) <- substr(rownames(tab_compt_temp), 5, 10)
+tab_compt_temp_sans_NA <- tab_compt_temp[which(rownames(tab_compt_temp) %in% Site_Saison_Sans_NA_all_KO),]
+## Standardization of Abundances
+tab_compt <- decostand(tab_compt_temp_sans_NA, "hellinger")
+KO_TPM_per_sample <- t(KO_Samples_tab)
+stand_KO_TPM <- decostand(KO_TPM_per_sample, "hellinger")
+bray_KO_TPM <- vegdist(stand_KO_TPM, method = "bray")
+## PCoA with all sites
+pcoa_KO_bray <- pcoa(bray_KO_TPM)
+pts_KO_bray <- as.data.frame(pcoa_KO_bray$vectors[,1:2])
+colnames(pts_KO_bray) <- c("PCoA1", "PCoA2")
+eig_KO_bray <- pcoa_KO_bray$values$Relative_eig * 100
+xlab_KO_bray <- paste0("PCoA1 (", round(eig_KO_bray[1], 1), "%)")
+ylab_KO_bray <- paste0("PCoA2 (", round(eig_KO_bray[2], 1), "%)")
+pts_KO_bray$Typologie <- Metadata_metaG$Connectivity
+pts_KO_bray$Saison <- Metadata_metaG$Sampling_campaign
+pts_KO_bray$Nom <- Metadata_metaG$Name
+rownames(pts_KO_bray) <- Metadata_metaG$Samples
+pts_KO_bray$Season_form <- factor(
+  ifelse(pts_KO_bray$Saison == "S2", "circle", 
+         ifelse(pts_KO_bray$Saison == "S3", "diamond", 
+                ifelse(pts_KO_bray$Saison == "S4", "square", "triangle"))))
+ggplot(pts_KO_bray, aes(x = -PCoA1, y = PCoA2, color = Typologie)) +
+  geom_point(data = pts_KO_bray, aes(color = Typologie, shape = Saison), size = 2.5) +
+  stat_ellipse(aes(color = Typologie, group = Typologie), type = "norm", level = 0.95) +
+  scale_shape_manual(values = c("S2" = 15, "S3" = 16, "S4" = 17, "S5" = 18),
+                     labels = c("May" , "June", "August", "September")) +
+  scale_color_manual(values = colors_typo) +
+  coord_cartesian(xlim = c(-0.4, 0.3), ylim = c(-0.15, 0.2)) +
+  labs(x = xlab_KO_bray, y = ylab_KO_bray, title = "PCoA - Bray Curtis ~ Typologie + Mois") +
+  theme_minimal()
+## Between class analysis
+acp_inter_classes_fonc <- dudi.pca(tab_compt,scan=F,nf=2)
+# Sampling campaign
+inter_classes_saison_fonc <- bca(acp_inter_classes_fonc,as.factor(tab_saison_site$Sampling_campaign),scan=F)
+round(randtest(inter_classes_saison_fonc)$obs,dig=3);round(randtest(inter_classes_saison_fonc)$pvalue,dig=3) 
+head(inertia.dudi(inter_classes_saison_fonc)$tot) 
+# Hydrological Connectivity
+inter_classes_typo_fonc <- bca(acp_inter_classes_fonc,as.factor(tab_saison_site$Connectivity),scan=F)
+round(randtest(inter_classes_typo_fonc)$obs,dig=3);round(randtest(inter_classes_typo_fonc)$pvalue,dig=3) 
+head(inertia.dudi(inter_classes_typo_fonc)$tot)
+
+## PCoA for KOs involved in Carbon cycle
+tab_compt_Carbon_temp <- tab_compt_temp[, which(colnames(tab_compt_temp) %in% Pathways_KO_KEGG_list$KO)]
+tab_compt_C <- decostand(tab_compt_Carbon_temp, "hellinger")
+stand_KO_TPM_C <- decostand(tab_compt_C, "hellinger")
+bray_KO_TPM_C <- vegdist(stand_KO_TPM_C, method = "bray")
+pcoa_KO_bray_C <- pcoa(bray_KO_TPM_C)
+pts_KO_bray_C <- as.data.frame(pcoa_KO_bray_C$vectors[,1:2])
+colnames(pts_KO_bray_C) <- c("PCoA1", "PCoA2")
+eig_KO_bray_C <- pcoa_KO_bray_C$values$Relative_eig * 100
+xlab_KO_bray_C <- paste0("PCoA1 (", round(eig_KO_bray_C[1], 1), "%)")
+ylab_KO_bray_C <- paste0("PCoA2 (", round(eig_KO_bray_C[2], 1), "%)")
+pts_KO_bray_C$Typologie <- Metadata_metaG$Connectivity
+pts_KO_bray_C$Saison <- Metadata_metaG$Sampling_campaign
+pts_KO_bray_C$Nom <- Metadata_metaG$Name
+rownames(pts_KO_bray_C) <- Metadata_metaG$Samples
+pts_KO_bray_C$Season_form <- factor(
+  ifelse(pts_KO_bray_C$Saison == "S2", "circle", 
+         ifelse(pts_KO_bray_C$Saison == "S3", "diamond", 
+                ifelse(pts_KO_bray_C$Saison == "S4", "square", "triangle"))))
+ggplot(pts_KO_bray_C, aes(x = -PCoA1, y = PCoA2, color = Typologie)) +
+  geom_point(data = pts_KO_bray_C, aes(color = Typologie, shape = Saison), size = 2.5) +
+  stat_ellipse(aes(color = Typologie, group = Typologie), type = "norm", level = 0.95) +
+  scale_shape_manual(values = c("S2" = 15, "S3" = 16, "S4" = 17, "S5" = 18),
+                     labels = c("May" , "June", "August", "September")) +
+  scale_color_manual(values = colors_typo) +
+  coord_cartesian(xlim = c(-0.4, 0.3), ylim = c(-0.15, 0.2)) +
+  labs(x = xlab_KO_bray_C, y = ylab_KO_bray_C, title = "PCoA - Bray Curtis ~ Typologie + Mois") +
+  theme_minimal()
+
+## Between class analysis for KOs involved in Carbon cycle
+acp_inter_classes_fonc_C <- dudi.pca(tab_compt_C,scan=F,nf=2) 
+# Sampling campaign
+inter_classes_saison_fonc_C <- bca(acp_inter_classes_fonc_C,as.factor(Metadata_metaG$Sampling_campaign),scan=F)
+round(randtest(inter_classes_saison_fonc_C)$obs,dig=3);round(randtest(inter_classes_saison_fonc_C)$pvalue,dig=3) 
+head(inertia.dudi(inter_classes_saison_fonc_C)$tot) 
+# Hydrological connectivity 
+inter_classes_typo_fonc_C <- bca(acp_inter_classes_fonc_C,as.factor(Metadata_metaG$Connectivity),scan=F)
+round(randtest(inter_classes_typo_fonc_C)$obs,dig=3);round(randtest(inter_classes_typo_fonc_C)$pvalue,dig=3) 
+head(inertia.dudi(inter_classes_typo_fonc_C)$tot)
+
+
+
+
