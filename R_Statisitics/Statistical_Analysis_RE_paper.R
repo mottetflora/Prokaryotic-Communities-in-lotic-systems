@@ -32,6 +32,7 @@ library(ggVennDiagram)
 library(glmmTMB)
 library(emmeans)
 library(DESeq2)
+library(pheatmap)
 
 ##########################
 ###### Color Palets ######
@@ -638,7 +639,7 @@ round(randtest(inter_classes_typo_fonc)$obs,dig=3);round(randtest(inter_classes_
 head(inertia.dudi(inter_classes_typo_fonc)$tot)
 
 ## PCoA for KOs involved in Carbon cycle
-tab_compt_Carbon_temp <- tab_compt_temp[, which(colnames(tab_compt_temp) %in% Pathways_KO_KEGG_list$KO)]
+tab_compt_Carbon_temp <- tab_compt_temp[, which(colnames(tab_compt_temp) %in% Pathway_KO_KEGG_list$KO)]
 tab_compt_C <- decostand(tab_compt_Carbon_temp, "hellinger")
 stand_KO_TPM_C <- decostand(tab_compt_C, "hellinger")
 bray_KO_TPM_C <- vegdist(stand_KO_TPM_C, method = "bray")
@@ -676,6 +677,85 @@ head(inertia.dudi(inter_classes_saison_fonc_C)$tot)
 inter_classes_typo_fonc_C <- bca(acp_inter_classes_fonc_C,as.factor(Metadata_metaG$Connectivity),scan=F)
 round(randtest(inter_classes_typo_fonc_C)$obs,dig=3);round(randtest(inter_classes_typo_fonc_C)$pvalue,dig=3) 
 head(inertia.dudi(inter_classes_typo_fonc_C)$tot)
+
+
+#### H7: Is there a differential presence of some genes  cycle pathways abundances depend on hydrological connectivity? ####
+## Number of reads per pathway
+KO_column_Samples_tab_raw_count <- KO_Samples_tab_raw_count %>%
+  rownames_to_column("KO")
+KO_Samples_Carbon_Cycle_raw_count <- KO_column_Samples_tab_raw_count[which(KO_column_Samples_tab_raw_count$KO %in% Pathway_KO_KEGG_list$KO),]
+KO_C_Cycle_list <- KO_Samples_Carbon_Cycle_raw_count$KO
+KO_Samples_Carbon_Cycle_raw_count <- KO_Samples_Carbon_Cycle_raw_count[, -1]
+rownames(KO_Samples_Carbon_Cycle_raw_count) <- KO_C_Cycle_list
+KO_Samples_Carbon_Cycle_raw_count <- KO_Samples_Carbon_Cycle_raw_count[,order(match(colnames(KO_Samples_Carbon_Cycle_raw_count), rownames(Metadata_DESeq)))]
+KO_Samples_Carbon_Cycle_raw_count_sans_inter <- KO_Samples_Carbon_Cycle_raw_count[,which(colnames(KO_Samples_Carbon_Cycle_raw_count) %in% rownames(Metadata_DESeq))]
+KO_Samples_Carbon_Cycle_raw_count_sans_inter <- KO_Samples_Carbon_Cycle_raw_count_sans_inter[, order(colnames(KO_Samples_Carbon_Cycle_raw_count_sans_inter))]
+tutu <- as.data.frame(KO_Samples_Carbon_Cycle_raw_count_sans_inter)
+rownames(tutu) <- KO_C_Cycle_list
+
+## DESeq2 analysis
+deseq_data <- DESeqDataSetFromMatrix(
+  countData = tutu,
+  colData = Metadata_DESeq,
+  design = ~ Typo_court
+)
+
+resultsNames(deseq_data_final) # Connected est au numérateur, Disconnected est au dénominateur
+deseq_result <- results(deseq_data_final)
+deseq_foldchange_signif <- deseq_result[which(deseq_result$padj < 0.05 & abs(deseq_result$log2FoldChange) > 2),]
+nrow(deseq_foldchange_signif)
+deseq_foldchange_signif[order(abs(deseq_foldchange_signif$log2FoldChange), decreasing = TRUE), ]
+zé"edeseq_foldchange_signif_connected <- subset(deseq_foldchange_signif, log2FoldChange > 2)
+nrow(deseq_foldchange_signif_connected)
+deseq_foldchange_signif_disconnected <- subset(deseq_foldchange_signif, log2FoldChange < -2)
+nrow(deseq_foldchange_signif_disconnected)
+deseq_KO <- matrix(NA, nrow = 45, ncol = 2)
+colnames(deseq_KO) <- c("KO", "Carbon_role")
+deseq_KO <- as.data.frame(deseq_KO)
+deseq_KO$KO <- rownames(deseq_foldchange_signif)
+deseq_KO$Carbon_role <- c("Methanogenesis", "Carbon fixation", rep("Methanogenesis", 8), "Respiration", "Carbon fixation", "Methanogenesis", "Respiration", "Central metabolism", "Respiration", "Central metabolism", rep("Methanogenesis", 3), "Methanotrophy", rep("Methanogenesis", 3), "Carbon fixation", "Central metabolism", rep("Methanogenesis", 3), "Central metabolism", rep("Methanogenesis", 5), "Central metabolism", rep("Methanogenesis", 4), "Central metabolism", "Carbon fixation", rep("Methanogenesis", 2), "Central metabolism")
+plot(deseq_result$log2FoldChange,
+     -log10(deseq_result$pvalue),
+     pch = ifelse(rownames(deseq_result) %in% deseq_KO$KO[deseq_KO$Carbon_role == "Central metabolism" ],
+                  17, 
+                  ifelse(rownames(deseq_result) %in% deseq_KO$KO[deseq_KO$Carbon_role == "Respiration" ],
+                         15, 
+                         ifelse(rownames(deseq_result) %in% deseq_KO$KO[deseq_KO$Carbon_role == "Carbon fixation" ],
+                                18, 
+                                ifelse(rownames(deseq_result) %in% deseq_KO$KO[deseq_KO$Carbon_role == "Methanogenesis" ],
+                                       8, 
+                                       ifelse(rownames(deseq_result) %in% deseq_KO$KO[deseq_KO$Carbon_role == "Methanotrophy"],
+                                              16, 21))))),
+     col = ifelse(rownames(deseq_result) %in% deseq_KO$KO[deseq_KO$Carbon_role == "Central metabolism" ],
+                  "black", 
+                  ifelse(rownames(deseq_result) %in% deseq_KO$KO[deseq_KO$Carbon_role == "Respiration" ],
+                         "darkolivegreen4", 
+                         ifelse(rownames(deseq_result) %in% deseq_KO$KO[deseq_KO$Carbon_role == "Carbon fixation" ],
+                                "lightgreen", 
+                                ifelse(rownames(deseq_result) %in% deseq_KO$KO[deseq_KO$Carbon_role == "Methanogenesis" ],
+                                       "red", 
+                                       ifelse(rownames(deseq_result) %in% deseq_KO$KO[deseq_KO$Carbon_role == "Methanotrophy"],
+                                              "pink", "grey"))))),
+     cex = 1.5,
+     xlab = "log2 Fold Change",
+     ylab = "-log10(p-value)")
+abline(v = c(-2, 2), col = "blue", lty = 4)
+abline(h = -log10(0.05), col = "blue", lty = 4)
+
+KO_mean_ab <- aggregate(
+  t(KO_Samples_Carbon_Cycle_raw_count_sans_inter),
+  by = list(Metadata_DESeq$Lone),
+  FUN = mean
+)
+
+KO_mean_ab <- KO_mean_ab[, -1]
+rownames(KO_mean_ab) <- unique(Metadata_DESeq$Lone)
+
+pheatmap(t(KO_mean_ab[,which(colnames(KO_mean_ab) %in% deseq_KO$KO)]))
+pheatmap(log10(t(KO_mean_ab[,which(colnames(KO_mean_ab) %in% deseq_KO$KO)]) + 1))
+
+
+
 
 
 
