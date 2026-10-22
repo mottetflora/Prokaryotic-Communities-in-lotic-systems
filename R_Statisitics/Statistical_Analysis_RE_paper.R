@@ -37,17 +37,9 @@ library(pheatmap)
 ##########################
 ###### Color Palets ######
 ##########################
-colors_sidearm <- c("GAB" = "#009E73", "MAT" = "#009E73", "TON" = "#009E73", "MOL" = "#F0E442", "PON" = "#F0E442", "MGA" = "#D55E00", "PLA" = "#D55E00", "BRE" = "#000000", "SAU" = "#000000")
-colors_site <- c("GAB-A" = "#009E73", "GAB-B" = "#009E73", "GAB-C" = "#009E73", 
-                 "MAT-A" = "#009E73", "MAT-B" = "#009E73", "MAT-C" = "#009E73", 
-                 "TON-A" = "#009E73", "TON-B" = "#009E73", "TON-C" = "#009E73", 
-                 "MOL-A" = "#F0E442", "MOL-B" = "#F0E442", "MOL-C" = "#F0E442",
-                 "PON-A" = "#F0E442", "PON-B" = "#F0E442", "PON-C" = "#F0E442", 
-                 "MGA-A" = "#D55E00", 
-                 "PLA" = "#D55E00", "BRE" = "#000000", "SAU" = "#000000")
+colors_sidearm_co_deco <- c("GAB" = "#009E73", "MAT" = "#009E73", "TON" = "#009E73", "MGA" = "#D55E00", "PLA" = "#D55E00", "BRE" = "#D55E00", "SAU" = "#D55E00")
+
 colors_typo <- c("Connected" = "#009E73", "Partially connected" = "#F0E442", "Occasionally connected" =  "#D55E00", "Disconnected" = "#000000")
-colors_campaign <- c("S2" = "#543005", "S3" = "#8C510A", "S4" = "#BF812D", "S5" = "#DFC27D")
-colors_typo_boxplot <- c("Connected" = "#009E73", "Partially connected" = "#F0E442", "Occasionally connected" =  "#D55E00", "Disconnected" = "#252525")
 
 color_typo_season <- c("S2_co" = "#A1D99B","S3_co" = "#74C476", "S4_co" = "#009E73", "S5_co" = "#00441B",
                        "S2_pco" = "#F0E442", "S3_pco" = "#E6AB02", "S4_pco" = "#A6761D", "S5_pco" = "#543005", 
@@ -168,17 +160,7 @@ tab_saison_site <- tab_var_env_sans_NA[, c(14:15)]
 rownames(tab_saison_site) <- Site_Saison_Sans_NA
 tab_saison_site$Lone_Saison <- substr(rownames(tab_saison_site), 1, 6)
 tab_saison_site$Lone <- substr(tab_saison_site$Lone_Saison, 4, 6)
-tab_saison_site$Typo <- c(rep("Disconnected", 3), rep("Connected", 5), "Occasionally connected",
-                          rep("Partially connected", 3), rep("Occasionally connected", 3), rep("Partially connected", 3),
-                          rep("Disconnected", 3), rep("Connected", 3), rep("Disconnected", 3),
-                          rep("Connected", 4), "Occasionally connected", rep("Partially connected", 3),
-                          rep("Occasionally connected", 3), rep("Partially connected", 3), rep("Disconnected", 3),
-                          rep("Connected", 3), rep("Disconnected", 3), rep("Connected", 6),
-                          "Occasionally connected", rep("Partially connected", 3), "Occasionally connected", "Partially connected",
-                          rep("Disconnected", 2), rep("Connected", 3), rep("Disconnected", 3),
-                          rep("Connected", 6), "Occasionally connected", rep("Partially connected", 3),
-                          rep("Occasionally connected", 3), rep("Partially connected", 3), rep("Disconnected", 2),
-                          rep("Connected", 3))
+tab_saison_site$Typo <- Metadata_used_agreg[which(rownames(Metadata_used_agreg) %in% rownames(tab_saison_site)), 16]
 tab_saison_site$Saison <- as.factor(tab_saison_site$Saison)
 tab_saison_site$Site <- as.factor(tab_saison_site$Site)
 tab_saison_site$Lone_Saison <- as.factor(tab_saison_site$Lone_Saison)
@@ -898,8 +880,6 @@ Methanotrophy_anova_aov <- aov(Methanotrophy_Methanol ~ Name, data = Carbon_cycl
 Methanotrophy_anova_tukey <- TukeyHSD(Methanotrophy_anova_aov)
 print(Methanotrophy_anova_tukey)
 
-colors_sidearm_co_deco <- c("GAB" = "#009E73", "MAT" = "#009E73", "TON" = "#009E73", "MGA" = "#D55E00", "PLA" = "#D55E00", "BRE" = "#D55E00", "SAU" = "#D55E00")
-
 par(mfrow = c(2, 2))
 boxplot(Methanogenesis_CO2 ~ Name, data = Carbon_cycle_abundance_coVSdeco, 
         col = colors_sidearm_co_deco,
@@ -926,8 +906,3 @@ boxplot(Methanotrophy_Methanol ~ Name, data = Carbon_cycle_abundance_coVSdeco,
         xlab = "Sidearms",
         ylab = "Pathway Abundance (RPMs)", 
         main = "Methanotrophy")
-
-
-
-
-
