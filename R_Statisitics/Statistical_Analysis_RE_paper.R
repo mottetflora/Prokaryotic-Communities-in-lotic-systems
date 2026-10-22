@@ -749,7 +749,183 @@ KO_mean_ab <- KO_mean_ab[, -1]
 rownames(KO_mean_ab) <- unique(Metadata_DESeq$Lone)
 pheatmap(log10(t(KO_mean_ab[,which(colnames(KO_mean_ab) %in% deseq_KO$KO)]) + 1))
 
+#### H8: Carbon cycle pathways abundances depend on hydrological connectivity ####
+KO_column_Samples_tab <- KO_Samples_tab %>%
+  rownames_to_column("KO")
+KO_Samples_C_Cycle <- KO_column_Samples_tab[which(KO_column_Samples_tab$KO %in% Pathway_KO_KEGG_list$KO),]
+KO_Samples_long <- KO_Samples_C_Cycle %>%
+  pivot_longer(-KO, names_to = "Sample", values_to = "Count")
+KO_multiple_pathways <- Pathway_KO_KEGG_list %>%
+  group_by(KO) %>%
+  summarise(n_pathways = n())
+## Weighting abundances by number of pathways involving each KO
+KO_Samples_long_weighted <- KO_Samples_long %>%
+  inner_join(Pathway_KO_KEGG_list, by = "KO") %>%
+  inner_join(KO_multiple_pathways, by = "KO") %>%
+  mutate(weighted_abundance = Count / n_pathways)
+## Pathways in carbon cycle
+Pathway_abundance_long <- KO_Samples_long_weighted %>%
+  group_by(Module, Carbon_cycle_section, Carbon_pathway, Sample) %>%
+  summarise(Abundance_pathway = sum(weighted_abundance), .groups = "drop") 
+Pathway_abundance <- Pathway_abundance_long[which(Pathway_abundance_long$Carbon_pathway != "Other"),] %>%
+  pivot_wider(names_from = Sample, values_from = Abundance_pathway)
+Pathway_abundance <- Pathway_abundance[order(match(Pathway_abundance$Carbon_pathway, unique(Pathway_KO_KEGG_list$Carbon_pathway))),] 
+Carbon_cycle_abundance <- as.data.frame(t(Pathway_abundance[,-c(1:2)]))
+colnames(Carbon_cycle_abundance) <- Carbon_cycle_abundance[1,]
+Carbon_cycle_abundance <- as.data.frame(Carbon_cycle_abundance[-1,])
+rownames(Carbon_cycle_abundance) <- substr(rownames(Carbon_cycle_abundance), 5, 10)
+Carbon_cycle_abundance <- Carbon_cycle_abundance[,]%>%
+  mutate(across(everything(), as.numeric))
+Carbon_pathways <- colnames(Carbon_cycle_abundance)
+long_data <- Carbon_cycle_abundance %>%
+  rownames_to_column("Sample") %>%
+  pivot_longer(
+    -Sample,
+    names_to = "Pathway",
+    values_to = "Abundance"
+  )
+long_data$Sample <- factor(long_data$Sample, 
+                           levels = c("GAB_S2", "GAB_S3", "GAB_S4", "GAB_S5", "MAT_S2", "MAT_S3", "MAT_S4", "MAT_S5", "TON_S2", "TON_S3", "TON_S4", "TON_S5", 
+                                      "MOL_S2", "MOL_S3", "MOL_S4", "MOL_S5", "PON_S2", "PON_S3", "PON_S4", "PON_S5", 
+                                      "MGA_S2", "MGA_S3", "MGA_S4", "MGA_S5", "PLA_S2", "PLA_S3", "PLA_S4", "PLA_S5", 
+                                      "BRE_S2", "BRE_S3", "BRE_S4", "BRE_S5","SAU_S2", "SAU_S3", "SAU_S4", "SAU_S5"))
+## Graphe
+ggplot(long_data, aes(x = Sample, y = Abundance, color = Sample)) +
+  geom_jitter(width = 0.1) +
+  facet_wrap(~ Pathway, scales = "free_y") +
+  scale_color_manual(values = colors_sample) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+        panel.spacing = unit(1, "lines"))
+### Test connected VS disconnected
+Carbon_cycle_abundance_coVSdeco <- as.data.frame(Carbon_cycle_abundance[!substr(rownames(Carbon_cycle_abundance), 1,3) %in% c("MOL", "PON"),]) # Removing MOL and PON, intermediate connectivity
+Carbon_cycle_abundance_coVSdeco$Connectivity <- c(rep("Disconnected", 4), rep("Connected", 8), rep("Disconnected", 4),
+                                                  rep("Disconnected", 4), rep("Disconnected", 4), rep("Connected", 4))
+Carbon_cycle_abundance_coVSdeco$Sampling_campaign <- rep(c("May", "June", "August", "September"), 7)
+Carbon_cycle_abundance_coVSdeco$Name <- substr(rownames(Carbon_cycle_abundance_coVSdeco), 1, 3)
+## Generalized linear mixed models for each pathway
+Carbon_cycle_abundance_coVSdeco_glm <- Carbon_cycle_abundance_coVSdeco[, -c(23:25)]
+Carbon_pathways_coVSdeco <- colnames(Carbon_cycle_abundance_coVSdeco_glm)
+Carbon_pathway_glmm <- lapply(Carbon_pathways_coVSdeco, function(pathway){
+  # Temporary table
+  data <- data.frame(
+    Abondance = Carbon_cycle_abundance_coVSdeco_glm[[pathway]],
+    Connectivity = Carbon_cycle_abundance_coVSdeco$Connectivity,
+    Campaign = Carbon_cycle_abundance_coVSdeco$Sampling_campaign
+  )
+  # Model : 
+  mod <- glmmTMB(
+    Abondance ~ Connectivity + (1 | Campaign),
+    family = nbinom2,
+    data = data
+  )
+  # Null model
+  mod_null <- glmmTMB(
+    Abondance ~ (1 | Campaign),
+    family = nbinom2,
+    data = data
+  )
+  # Chi2 test
+  lrt <- anova(mod_null, mod)
+  p_global <- lrt$`Pr(>Chisq)`[2]
+  chi2_global <- lrt$Chisq[2]
+  # Post-hoc test
+  posthoc <- emmeans(mod, pairwise ~ Connectivity)
+  test <- as.data.frame(posthoc$contrasts)
+  # Final table
+  test$Pathway <- pathway
+  test$Global_p <- p_global
+  test$Chi2 <- chi2_global
+  test
+})
+Carbon_pathway_stats <- do.call(rbind, Carbon_pathway_glmm)
+unique(subset(Carbon_pathway_stats, Global_p < 0.05)$Pathway)
+Carbon_cycle_abundance <- lapply(Carbon_cycle_abundance, as.numeric)
+Carbon_cycle_abundance$Connectivity <- c(rep("Disconnected", 4), rep("Connected", 8), rep("Disconnected", 4), rep("Inter", 4), 
+                                         rep("Disconnected", 4), rep("Inter", 4), rep("Disconnected", 4), rep("Connected", 4))
+Carbon_cycle_abundance$Name <- substr(rownames(Carbon_cycle_abundance),1,3)
+# Mean of pathways abundances co vs deco
+Carbon_cycle_abundance_coVSdeco_moy <- Carbon_cycle_abundance_coVSdeco %>%
+  group_by(Connectivity) %>%
+  summarise(
+    across(
+      where(is.numeric),
+      list(
+        mean = ~mean(.x, na.rm = TRUE),
+        sd   = ~sd(.x, na.rm = TRUE)
+      )
+    )
+  )
+Carbon_cycle_abundance_coVSdeco_moy <- Carbon_cycle_abundance_coVSdeco_moy[, -1]
+rownames(Carbon_cycle_abundance_coVSdeco_moy) <- c("Connected", "Disconnected")
+Carbon_cycle_abundance_lone_coVSdeco_moy <- Carbon_cycle_abundance_coVSdeco %>%
+  group_by(Name) %>%
+  summarise(
+    across(
+      where(is.numeric),
+      list(
+        mean = ~mean(.x, na.rm = TRUE),
+        sd   = ~sd(.x, na.rm = TRUE)
+      )
+    )
+  )
+Carbon_cycle_abundance_lone_coVSdeco_moy <- Carbon_cycle_abundance_lone_coVSdeco_moy[, -1]
+rownames(Carbon_cycle_abundance_lone_coVSdeco_moy) <- unique(Carbon_cycle_abundance_coVSdeco$Name)
+Carbon_cycle_abundance_coVSdeco$Name <- factor(Carbon_cycle_abundance_coVSdeco$Name, 
+                                               levels = c("GAB", "MAT", "TON", "MGA", "PLA","BRE", "SAU"))
+## Methane production and consumption
+Methano_CO2_anova <- anova(lm(Methanogenesis_CO2 ~ Name, data = Carbon_cycle_abundance_coVSdeco, na.action = na.omit))
+print(Methano_CO2_anova)
+Methano_CO2_anova_aov <- aov(Methanogenesis_CO2 ~ Name, data = Carbon_cycle_abundance_coVSdeco)
+Methano_CO2_anova_tukey <- TukeyHSD(Methano_CO2_anova_aov)
+print(Methano_CO2_anova_tukey)
 
+Methano_Acetate_anova <- anova(lm(Methanogenesis_Acetate ~ Name, data = Carbon_cycle_abundance_coVSdeco, na.action = na.omit))
+print(Methano_Acetate_anova)
+Methano_Acetate_anova_aov <- aov(Methanogenesis_Acetate ~ Name, data = Carbon_cycle_abundance_coVSdeco)
+Methano_Acetate_anova_tukey <- TukeyHSD(Methano_Acetate_anova_aov)
+print(Methano_Acetate_anova_tukey)
+
+Methano_Methyle_anova <- anova(lm(Methanogenesis_Methyle ~ Name, data = Carbon_cycle_abundance_coVSdeco, na.action = na.omit))
+print(Methano_Methyle_anova)
+Methano_Methyle_anova_aov <- aov(Methanogenesis_Methyle ~ Name, data = Carbon_cycle_abundance_coVSdeco)
+Methano_Methyle_anova_tukey <- TukeyHSD(Methano_Methyle_anova_aov)
+print(Methano_Methyle_anova_tukey)
+
+Methanotrophy_anova <- anova(lm(Methanotrophy_Methanol ~ Name, data = Carbon_cycle_abundance_coVSdeco, na.action = na.omit))
+print(Methanotrophy_anova)
+Methanotrophy_anova_aov <- aov(Methanotrophy_Methanol ~ Name, data = Carbon_cycle_abundance_coVSdeco)
+Methanotrophy_anova_tukey <- TukeyHSD(Methanotrophy_anova_aov)
+print(Methanotrophy_anova_tukey)
+
+colors_sidearm_co_deco <- c("GAB" = "#009E73", "MAT" = "#009E73", "TON" = "#009E73", "MGA" = "#D55E00", "PLA" = "#D55E00", "BRE" = "#D55E00", "SAU" = "#D55E00")
+
+par(mfrow = c(2, 2))
+boxplot(Methanogenesis_CO2 ~ Name, data = Carbon_cycle_abundance_coVSdeco, 
+        col = colors_sidearm_co_deco,
+        ylim = c(0, 2000),
+        xlab = "Sidearms",
+        ylab = "Pathway Abundance (RPMs)", 
+        main = "Hydrogenotrophic Methanogenesis")
+
+boxplot(Methanogenesis_Acetate ~ Name, data = Carbon_cycle_abundance_coVSdeco, 
+        col = colors_sidearm_co_deco,
+        ylim = c(0, 2000),
+        xlab = "Sidearms",
+        ylab = "Pathway Abundance (RPMs)", 
+        main = "Aceticlastic Methanogenesis")
+
+boxplot(Methanogenesis_Methyle ~ Name, data = Carbon_cycle_abundance_coVSdeco, 
+        col = colors_sidearm_co_deco,
+        xlab = "Sidearms",
+        ylab = "Pathway Abundance (RPMs)", 
+        main = "Methylotrophic Methanogenesis")
+
+boxplot(Methanotrophy_Methanol ~ Name, data = Carbon_cycle_abundance_coVSdeco, 
+        col = colors_sidearm_co_deco,
+        xlab = "Sidearms",
+        ylab = "Pathway Abundance (RPMs)", 
+        main = "Methanotrophy")
 
 
 
