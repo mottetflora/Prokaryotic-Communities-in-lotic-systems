@@ -15,12 +15,11 @@ Steps 1 to 4 and 6 to 8 can be run in a bash terminal
 6) Run metagenomics_prodigal.sh to perform prokaryotic Open Reading Frames prediction
 7) Run metagenomics_bbmap.sh to map reads against ORFs (needed for ORFs cover)
 8) Run metagenomics_kofamscan.sh to assign functions (KEGG Orthologs) to ORFs
+9) Run metagenomics_ORFs_Kraken_KO_link.sh to assign taxa to ORFs
 
 ## Statistical analyses
 Using Load_Data.R script, create a R object with all data needed for statistical analyses presented in this study
 
 All statistical analyses were performed using Statistical_Analysis_RE_paper.R
 
-Metadata used in this study can be found in "Metadata" folder
-
-Raw data can be found here:
+Data can be found here:
