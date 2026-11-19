@@ -15,26 +15,26 @@ load("/Users/floramottet/Documents/Pro/Bio-info/Data/All_Data_Official.RData")
 ########################
 ####### Packages #######
 ########################
-library(Hmisc)
-library(FactoMineR)
-library(factoextra)
-library(dplyr)
-library(tidyr)
-library(vegan)
-library(usedist)
-library(ggplot2)
-library(ggrepel)
-library(ade4)
-library(adegraphics)
-library(tibble)
-library(ggVennDiagram)
-library(doSNOW)
-library(itertools)
-library(combinat)
-library(glmmTMB)
-library(emmeans)
-library(DESeq2)
-library(pheatmap)
+library(Hmisc) # version 5.2-6
+library(FactoMineR) # version 2.16
+library(factoextra) # version 2.1.0
+library(dplyr) # version 1.2.1
+library(tidyr) # version 1.3.2
+library(vegan) # version 2.7-5
+library(usedist) # version 0.4.0
+library(ggplot2) # version 4.0.3
+library(ggrepel) # version 0.9.8
+library(ade4) # version 1.7-24
+library(adegraphics) # version 1.0-22
+library(tibble) # version 3.3.1
+library(ggVennDiagram) # version 1.5.7
+library(doSNOW) # version 1.0.20
+library(itertools) # version 0.1-3
+library(combinat) # version 0.0-9
+library(glmmTMB) # version 1.1.14
+library(emmeans) # version 2.0.4
+library(DESeq2) # version 1.52.0
+library(pheatmap) # version 1.0.13
 
 
 ##########################
@@ -408,8 +408,13 @@ Table_ab_sum_rel <-
                  c("Lone", "Nom", "Typologie", "Saison", "Site")])
 ## Bray-Curtis matrix
 bray_dist_stand_data_ab_sum <- vegdist(Table_ab_sum_rel[,!names(Table_ab_sum_rel) %in% c("Lone","Saison", "Typologie", "Site", "Nom")], method="bray")
+
+# Centroids calculs to avoid pseudo-replication
+dist_centroids_all <- dist_multi_centroids(bray_dist_stand_data_ab_sum,
+                                           Metadata$Site_saison, squared = FALSE)
+
 ## PCoA on mean communities by site
-pcoa_com_moy <- dudi.pco(bray_dist_stand_data_ab_sum, scannf = FALSE, nf = 3)
+pcoa_com_moy <- dudi.pco(dist_centroids_all, scannf = FALSE, nf = 3)
 pts_com_moy <- as.data.frame(pcoa_com_moy$li[,1:2])
 colnames(pts_com_moy) <- c("PCoA1", "PCoA2")
 eig_pcoa <- pcoa_com_moy$eig
@@ -418,7 +423,7 @@ xlab_pcoa <- paste0("PCoA1 (", round(eig_pcoa_pct[1], 1), "%)")
 ylab_pcoa <- paste0("PCoA2 (", round(eig_pcoa_pct[2], 1), "%)")
 pts_com_moy <-
   cbind(pts_com_moy,
-        Metadata_used[match(rownames(pts_com_moy), sub("-1$", "", Metadata$Pcr)),
+        Metadata_used_agreg[match(rownames(pts_com_moy), Metadata_used_agreg$Site_saison),
                  c("Lone", "Nom", "Typologie", "Saison", "Site")])
 
 ggplot(pts_com_moy, aes(x = PCoA1, y = PCoA2, color = Typologie)) +
@@ -431,10 +436,6 @@ ggplot(pts_com_moy, aes(x = PCoA1, y = PCoA2, color = Typologie)) +
   theme_minimal()
 
 ## perMANOVA
-# Centroids calculs to avoid pseudo-replication
-dist_centroids_all <- dist_multi_centroids(bray_dist_stand_data_ab_sum,
-                                           Metadata$Site_saison, squared = FALSE)
-# Hydrological connectivity test
 print("#PERMANOVA to test variations between hydrological connectivities")
 perma_typo_com_moy <- adonis2(dist_centroids_all ~ Typologie, data = Metadata_used_agreg, by = "margin")
 print(perma_typo_com_moy)
@@ -848,7 +849,7 @@ sum(reads_OTUs_only_pco)
 # Occasionally connected (oco)
 OTUs_only_oco <- Reduce(setdiff, list(
   colnames(OTUs_oco),
-  c(colnames(OTUs_co), colnames(OTUs_pco), colnames(OTUs_paleo))
+  c(colnames(OTUs_co), colnames(OTUs_pco), colnames(OTUs_dco))
 ))
 reads_OTUs_only_oco <- rowSums(Data_raref_per_lone[, which(colnames(Data_raref_per_lone) %in% OTUs_only_oco)])
 sum(reads_OTUs_only_oco)
@@ -968,108 +969,7 @@ perma_typo_KO_C_Cycle <- adonis2(bray_KO_TPM_C ~ Connectivity, data = Metadata_m
 print(perma_typo_KO_C_Cycle)
 ###########
 
-#### H7: Environmental variables explaining prokaryotic functional profiles structure ####
-# Transform asymetric variables in log + min(x) values
-Metadata_metaG_temp <- Metadata_metaG
-
-Metadata_metaG_temp[c(11, 13:16, 20:22)] <- 
-  lapply(Metadata_metaG_temp[, c(11, 13:16, 20:22)], f)
-Metadata_metaG_temp <- Metadata_metaG_temp[order(Metadata_metaG_temp$Samples), ]
-
-# Which samples have NAs ? 
-samples_metaG_na <- sapply(lapply(Metadata_metaG_temp[, c(9:17, 20:22)], is.na), which) %>%
-  Reduce(union, .) %>% 
-  sort()
-
-# Remove samples with NA in metadata
-Metadata_metaG_temp <- Metadata_metaG_temp[-samples_metaG_na, ]
-KO_TPM_per_sample_db_rda <- KO_TPM_per_sample[!substr(rownames(KO_TPM_per_sample), 5, 10) %in%
-                                            Metadata_metaG_temp$Samples[samples_metaG_na], ]
-stand_KO_TPM_db_rda <- decostand(KO_TPM_per_sample_db_rda, "hellinger")
-bray_KO_TPM_db_rda <- vegdist(stand_KO_TPM_db_rda, method = "bray")
-
-# Informative metadata
-Metadata_metaG_db_rda <- cbind(Metadata_metaG_temp[, c(9:17, 20:22)],
-                         Metadata_metaG_temp[, c("Sampling_campaign"), drop = FALSE])
-
-# Variance Inflation Factor 
-vif.cca(capscale(bray_KO_TPM_db_rda ~ ., data = Metadata_metaG_db_rda[, -13])) 
-
-# partial db-RDA models
-rda_metaG_minp <- capscale(bray_KO_TPM_db_rda ~ Condition(Sampling_campaign),
-                                 data = Metadata_metaG_db_rda)
-rda_metaG_maxp <- capscale(bray_KO_TPM_db_rda ~ Condition(Sampling_campaign) + O2_mg + T + cond + pH + NH4_col + PO4_col + NO3_col + Pbiodispo_bentho + clay_pct + chla_col + COD_col +paf_bentho, data = Metadata_metaG_db_rda)
-
-
-step_metaG_dbrdap <- ordiR2step(rda_metaG_minp,
-                          scope = rda_metaG_maxp,
-                          direction = "both",
-                          R2scope = TRUE,
-                          pstep = 1000,
-                          trace = FALSE)
-step_metaG_dbrdap
-varsp_metaG <- attr(terms(step_metaG_dbrdap), "term.labels")
-varsp_metaG <- sub("(^Condition\\(|)", "", varsp_metaG)
-varsp_metaG <- sub("\\)", "", varsp_metaG)
-
-# db-RDA formula after variables selction
-formu_metaG <- sprintf("%s ~ %s",  deparse(substitute(bray_KO_TPM_db_rda)),
-                 paste(attr(terms(step_metaG_dbrdap), "term.labels"), collapse = " + "))
-formu_metaG <- as.formula(formu_metaG)
-
-# Associated statistics
-rda_metaG_p <- dbrda(formu_metaG, Metadata_metaG_db_rda)
-rda_metaG_p
-centroid_dist_rda_metaG <- capscale(formula = bray_KO_TPM_db_rda ~ Condition(Sampling_campaign), data = Metadata_metaG_db_rda) 
-RsquareAdj(centroid_dist_rda_metaG) 
-anova(centroid_dist_rda_metaG, permutations = 999)
-anova.cca(centroid_dist_rda_metaG, by = "margin")
-anova.cca(centroid_dist_rda_metaG, by = "axis")
-
-## Graph ==> Modèle avec la rda du metabar
-text_dbRDA1_all <- paste("dbRDA1 (",(4.4254/13.1435)*100," %)")
-text_dbRDA2_all <- paste("dbRDA2 (",(0.9561/13.1435)*100," %)")
-site_all <- as.data.frame(scores(centroid_dist_rda)[2])
-variables_all <-as.data.frame(scores(centroid_dist_rda)[4])
-rownames(variables_all) <- c("DOC", "OM", "PO4", "Chlî", "Clay", "T", "DO", "NH4")
-site_all$Lone <- Metadata_temp_bis$Lone
-site_all$Month_Connect <- Metadata_temp_bis$Month_typo
-site_all$Typo <- Metadata_temp_bis$Typologie
-site_all$Month_Connect <- factor(site_all$Month_Connect, 
-                                 levels = c("S2_co","S3_co", "S4_co", "S5_co",
-                                            "S2_pco", "S3_pco", "S4_pco", "S5_pco", 
-                                            "S2_oco", "S3_oco", "S4_oco", "S5_oco", 
-                                            "S2_dco", "S3_dco", "S4_dco", "S5_dco"))
-site_all$Lone <- factor(site_all$Lone, 
-                        levels = c("BRE", "GAB", "MAT", "MGA", "MOL", "PLA", "PON", "SAU", "TON"))
-site_all$Typo <- factor(site_all$Typo, levels = c("Connected", "Partially connected", "Occasionally connected", "Disconnected"))
-
-ggplot(site_all, aes(x = sites.CAP1, y = -sites.CAP2)) +
-  geom_point(data=site_all, size = 4, aes(x=sites.CAP1, y=-sites.CAP2, color = Month_Connect, shape = Lone)) +
-  labs(col="Hydrological connectivity") +
-  geom_segment(data=variables_all,aes(x=biplot.CAP1*0, y=-biplot.CAP2*0, xend=biplot.CAP1*2, yend=-biplot.CAP2*2), arrow = arrow(length = unit(0.15, "cm"))) +
-  geom_text_repel(data=variables_all,aes(x=biplot.CAP1*2,y=-biplot.CAP2*2,label=rownames(variables_all))) +
-  scale_color_manual(values = color_typo_season) +
-  scale_shape_manual(values = c("BRE" = 9, "GAB" = 15, "MAT" = 7,
-                                "MGA" = 17, "MOL" = 10, "PLA" = 6, 
-                                "PON" = 16, "SAU" = 18, "TON" = 12)) +
-  labs(x=text_dbRDA1_all, y=text_dbRDA2_all) +
-  ggtitle("db-RDA for All Seasons") +
-  theme(plot.title = element_text(size=10)) +
-  theme_bw()
-
-# Hierarchical partitioning
-all1p <- all.rda(dist_centroids_all_db_rda, Metadata_db_rda[, varsp],
-                 gof = "adjR2", condition = "Saison", 
-                 parallel = TRUE)
-hps6 <- partition(length(varsp)-1, all1p$gof, 
-                  parallel = TRUE, ncores = length(varsp)-1)
-
-hier_part_tab <- data.frame(setdiff(varsp, "Saison"), do.call(cbind, hps6))
-colnames(hier_part_tab) <- c("Variables", "I", "J")
-###########
-
-#### H8: Is there a differential presence of some genes  cycle pathways abundances depend on hydrological connectivity? ####
+#### H7: Is there a differential presence of some genes  cycle pathways abundances depend on hydrological connectivity? ####
 ## Number of reads per pathway
 KO_column_Samples_tab_raw_count <- KO_Samples_tab_raw_count %>%
   rownames_to_column("KO")
@@ -1142,7 +1042,7 @@ pheatmap(log10(t(KO_mean_ab[,which(colnames(KO_mean_ab) %in% deseq_KO$KO)]) + 1)
 
 ###########
 
-#### H9: Carbon cycle pathways abundances depend on hydrological connectivity ####
+#### H8: Carbon cycle pathways abundances depend on hydrological connectivity ####
 KO_column_Samples_tab <- KO_Samples_tab %>%
   rownames_to_column("KO")
 KO_Samples_C_Cycle <- KO_column_Samples_tab[which(KO_column_Samples_tab$KO %in% Pathway_KO_KEGG_list$KO),]
